@@ -50,7 +50,6 @@ scripts/cdp.mjs eval <target> <expr>
 ```bash
 scripts/cdp.mjs html    <target> [selector]   # full page or element HTML
 scripts/cdp.mjs nav     <target> <url>         # navigate and wait for load
-scripts/cdp.mjs net     <target>               # resource timing entries
 scripts/cdp.mjs click   <target> <selector>    # click element by CSS selector
 scripts/cdp.mjs clickxy <target> <x> <y>       # click at CSS pixel coords
 scripts/cdp.mjs type    <target> <text>         # Input.insertText at current focus; works in cross-origin iframes unlike eval
@@ -59,6 +58,24 @@ scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
 scripts/cdp.mjs open    [url]                  # open new tab (each triggers Allow prompt)
 scripts/cdp.mjs stop    [target]               # stop daemon(s)
 ```
+
+### Network requests
+
+```bash
+scripts/cdp.mjs net <target>                    # list cached requests
+scripts/cdp.mjs net <target> <id>               # view request details (JSON)
+scripts/cdp.mjs net <target> <id> --body        # response body only
+scripts/cdp.mjs net <target> <id> --request-body # request body only
+scripts/cdp.mjs net <target> <id> --headers     # request + response headers
+scripts/cdp.mjs net <target> xhr                # filter by type: XHR/Fetch
+scripts/cdp.mjs net <target> error              # filter: status >= 400
+scripts/cdp.mjs net <target> <keyword>          # filter by URL keyword
+scripts/cdp.mjs net <target> clear              # clear cache
+```
+
+**Smart filtering**: Static resources (images, fonts, CSS, JS) are automatically excluded from cache. Only XHR, Fetch, Document, and WebSocket requests are captured.
+
+**Cache limit**: 500 requests (FIFO eviction).
 
 ## Coordinates
 

@@ -451,6 +451,117 @@ async function netStr(cdp, sid) {
   ).join('\n');
 }
 
+function netListStr(cachedRequests, args) {
+  const filter = args[0];
+
+  if (filter === 'clear') {
+    const count = cachedRequests.length;
+    cachedRequests.length = 0;
+    return `Cleared ${count} cached requests`;
+  }
+
+  if (cachedRequests.length === 0) {
+    return 'No cached requests. Navigate to a page first.';
+  }
+
+  let filtered = cachedRequests;
+
+  if (filter === 'xhr') {
+    filtered = cachedRequests.filter(r => r.type === 'xhr' || r.type === 'fetch');
+  } else if (filter === 'img' || filter === 'image') {
+    filtered = cachedRequests.filter(r => r.type === 'image');
+  } else if (filter === 'css') {
+    filtered = cachedRequests.filter(r => r.type === 'stylesheet');
+  } else if (filter === 'js' || filter === 'script') {
+    filtered = cachedRequests.filter(r => r.type === 'script');
+  } else if (filter === 'error') {
+    filtered = cachedRequests.filter(r => r.status >= 400);
+  } else if (filter && filter !== 'clear' && !filter.startsWith('--')) {
+    filtered = cachedRequests.filter(r => r.url.toLowerCase().includes(filter.toLowerCase()));
+  }
+
+  if (filtered.length === 0) {
+    return `No requests matching "${filter}"`;
+  }
+
+  const lines = [`Showing ${filtered.length} of ${cachedRequests.length} cached requests`];
+  for (const req of filtered) {
+    const method = req.method.padEnd(6);
+    const status = String(req.status || '?').padStart(3);
+    const type = (req.type || 'other').padEnd(6);
+    const url = req.url.length > 80 ? req.url.substring(0, 77) + '...' : req.url;
+    lines.push(`[${req.id}]  ${method} ${url}  ${status}  ${type}`);
+  }
+  return lines.join('\n');
+}
+
+async function netDetailStr(cdp, sid, cachedRequests, id, option) {
+  const req = cachedRequests.find(r => r.id === id);
+  if (!req) throw new Error(`Request ${id} not found`);
+
+  // Get response body on demand
+  let responseBody = null;
+  try {
+    const result = await cdp.send('Network.getResponseBody', { requestId: req.requestId }, sid);
+    responseBody = result.body;
+    if (result.base64Encoded) {
+      responseBody = Buffer.from(responseBody, 'base64').toString('utf-8');
+    }
+  } catch (e) {
+    responseBody = `[Failed to get response body: ${e.message}]`;
+  }
+
+  // Handle options
+  if (option === '--body') {
+    return responseBody;
+  }
+  if (option === '--request-body') {
+    return req.requestBody || '[No request body]';
+  }
+  if (option === '--headers') {
+    return JSON.stringify({
+      request: req.requestHeaders,
+      response: req.responseHeaders
+    }, null, 2);
+  }
+
+  // Default: return full JSON
+  return JSON.stringify({
+    request: {
+      method: req.method,
+      url: req.url,
+      headers: req.requestHeaders,
+      body: req.requestBody
+    },
+    response: {
+      status: req.status,
+      statusText: req.statusText,
+      headers: req.responseHeaders,
+      body: responseBody
+    }
+  }, null, 2);
+}
+
+async function netHandleCommand(cdp, sid, cachedRequests, args) {
+  const filter = args[0];
+  const option = args[1];
+
+  // Clear cache
+  if (filter === 'clear') {
+    const count = cachedRequests.length;
+    cachedRequests.length = 0;
+    return `Cleared ${count} cached requests`;
+  }
+
+  // Detail view: net <id> [--option]
+  if (filter && /^\d+$/.test(filter)) {
+    return await netDetailStr(cdp, sid, cachedRequests, parseInt(filter), option);
+  }
+
+  // List view
+  return netListStr(cachedRequests, args);
+}
+
 // Click element by CSS selector
 async function clickStr(cdp, sid, selector) {
   if (!selector) throw new Error('CSS selector required');
@@ -553,6 +664,65 @@ async function runDaemon(targetId) {
     process.exit(1);
   }
 
+  // Enable Network domain for request monitoring
+  try {
+    await cdp.send('Network.enable', {}, sessionId);
+  } catch (e) {
+    process.stderr.write(`Daemon: Network.enable failed: ${e.message}\n`);
+  }
+
+  // Network request cache
+  const MAX_CACHED_REQUESTS = 500;
+  const SKIP_TYPES = new Set(['image', 'font', 'stylesheet', 'media', 'script', 'other']);
+  const cachedRequests = [];
+  const pendingRequests = new Map(); // requestId -> request data
+
+  function addCachedRequest(req) {
+    if (cachedRequests.length >= MAX_CACHED_REQUESTS) {
+      cachedRequests.shift();
+    }
+    req.id = cachedRequests.length + 1;
+    cachedRequests.push(req);
+    return req.id;
+  }
+
+  // Network event listeners
+  cdp.onEvent('Network.requestWillBeSent', (params) => {
+    const type = (params.type || 'other').toLowerCase();
+    if (SKIP_TYPES.has(type)) return;
+
+    pendingRequests.set(params.requestId, {
+      requestId: params.requestId,
+      url: params.request.url,
+      method: params.request.method,
+      type: type,
+      requestHeaders: params.request.headers || {},
+      requestBody: params.request.postData || null,
+    });
+  });
+
+  cdp.onEvent('Network.responseReceived', (params) => {
+    const pending = pendingRequests.get(params.requestId);
+    if (!pending) return;
+
+    pending.status = params.response.status;
+    pending.statusText = params.response.statusText;
+    pending.responseHeaders = params.response.headers || {};
+    pending.mimeType = params.response.mimeType || '';
+  });
+
+  cdp.onEvent('Network.loadingFinished', (params) => {
+    const pending = pendingRequests.get(params.requestId);
+    if (!pending) return;
+
+    pendingRequests.delete(params.requestId);
+    addCachedRequest(pending);
+  });
+
+  cdp.onEvent('Network.loadingFailed', (params) => {
+    pendingRequests.delete(params.requestId);
+  });
+
   // Shutdown helpers
   let alive = true;
   function shutdown() {
@@ -603,7 +773,7 @@ async function runDaemon(targetId) {
         case 'shot': case 'screenshot': result = await shotStr(cdp, sessionId, args[0], targetId); break;
         case 'html': result = await htmlStr(cdp, sessionId, args[0]); break;
         case 'nav': case 'navigate': result = await navStr(cdp, sessionId, args[0]); break;
-        case 'net': case 'network': result = await netStr(cdp, sessionId); break;
+        case 'net': case 'network': result = await netHandleCommand(cdp, sessionId, cachedRequests, args); break;
         case 'click': result = await clickStr(cdp, sessionId, args[0]); break;
         case 'clickxy': result = await clickXyStr(cdp, sessionId, args[0], args[1]); break;
         case 'type': result = await typeStr(cdp, sessionId, args[0]); break;
