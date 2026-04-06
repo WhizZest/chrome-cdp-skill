@@ -475,7 +475,7 @@ function netListStr(cachedRequests, args) {
   } else if (filter === 'js' || filter === 'script') {
     filtered = cachedRequests.filter(r => r.type === 'script');
   } else if (filter === 'error') {
-    filtered = cachedRequests.filter(r => r.status >= 400);
+    filtered = cachedRequests.filter(r => r.status >= 400 || r.status === 0 || r.errorText);
   } else if (filter && filter !== 'clear' && !filter.startsWith('--')) {
     filtered = cachedRequests.filter(r => r.url.toLowerCase().includes(filter.toLowerCase()));
   }
@@ -487,7 +487,13 @@ function netListStr(cachedRequests, args) {
   const lines = [`Showing ${filtered.length} of ${cachedRequests.length} cached requests`];
   for (const req of filtered) {
     const method = req.method.padEnd(6);
-    const status = String(req.status || '?').padStart(3);
+    let statusStr;
+    if (req.status === 0 || req.errorText) {
+      statusStr = 'ERR';
+    } else {
+      statusStr = String(req.status || '?');
+    }
+    const status = statusStr.padStart(3);
     const type = (req.type || 'other').padEnd(6);
     const url = req.url.length > 80 ? req.url.substring(0, 77) + '...' : req.url;
     lines.push(`[${req.id}]  ${method} ${url}  ${status}  ${type}`);
@@ -495,56 +501,107 @@ function netListStr(cachedRequests, args) {
   return lines.join('\n');
 }
 
-async function netDetailStr(cdp, sid, cachedRequests, id, option) {
+const SENSITIVE_HEADERS = new Set([
+  'authorization', 'proxy-authorization', 'cookie', 'set-cookie',
+  'x-api-key', 'x-auth-token', 'x-access-token', 'x-csrf-token',
+  'www-authenticate', 'proxy-authenticate'
+]);
+
+function redactHeaders(headers, raw = false) {
+  if (raw || !headers || typeof headers !== 'object') return headers;
+  const redacted = {};
+  for (const [key, value] of Object.entries(headers)) {
+    const lowerKey = key.toLowerCase();
+    redacted[key] = SENSITIVE_HEADERS.has(lowerKey) ? '[REDACTED]' : value;
+  }
+  return redacted;
+}
+
+const TEXT_MIME_TYPES = ['text/', 'application/json', 'application/xml', 'application/javascript', 'application/x-www-form-urlencoded'];
+
+function isTextMimeType(mimeType) {
+  if (!mimeType) return false;
+  const lower = mimeType.toLowerCase();
+  return TEXT_MIME_TYPES.some(t => lower.startsWith(t));
+}
+
+async function netDetailStr(cdp, sid, cachedRequests, id, options) {
   const req = cachedRequests.find(r => r.id === id);
   if (!req) throw new Error(`Request ${id} not found`);
 
+  const raw = options.includes('--raw');
+  const showBody = options.includes('--body');
+  const showRequestBody = options.includes('--request-body');
+  const showHeaders = options.includes('--headers');
+
   // Get response body on demand
   let responseBody = null;
+  let base64Encoded = false;
   try {
     const result = await cdp.send('Network.getResponseBody', { requestId: req.requestId }, sid);
-    responseBody = result.body;
     if (result.base64Encoded) {
-      responseBody = Buffer.from(responseBody, 'base64').toString('utf-8');
+      base64Encoded = true;
+      // Only decode if it's a known text type
+      if (isTextMimeType(req.mimeType)) {
+        responseBody = Buffer.from(result.body, 'base64').toString('utf-8');
+      } else {
+        responseBody = result.body; // Keep as base64
+      }
+    } else {
+      responseBody = result.body;
     }
   } catch (e) {
     responseBody = `[Failed to get response body: ${e.message}]`;
   }
 
-  // Handle options
-  if (option === '--body') {
+  // Handle --body option
+  if (showBody && !showHeaders && !showRequestBody) {
+    if (base64Encoded && !isTextMimeType(req.mimeType)) {
+      return `[Base64 encoded, use --raw to see raw base64]\n${raw ? responseBody : ''}`;
+    }
     return responseBody;
   }
-  if (option === '--request-body') {
+
+  // Handle --request-body option
+  if (showRequestBody && !showHeaders && !showBody) {
     return req.requestBody || '[No request body]';
   }
-  if (option === '--headers') {
+
+  // Handle --headers option
+  if (showHeaders && !showBody && !showRequestBody) {
     return JSON.stringify({
-      request: req.requestHeaders,
-      response: req.responseHeaders
+      request: redactHeaders(req.requestHeaders, raw),
+      response: redactHeaders(req.responseHeaders, raw)
     }, null, 2);
   }
 
   // Default: return full JSON
+  const responseObj = {
+    status: req.status,
+    statusText: req.statusText,
+    headers: redactHeaders(req.responseHeaders, raw),
+  };
+
+  if (base64Encoded && !isTextMimeType(req.mimeType)) {
+    responseObj.body = { base64Encoded: true, body: responseBody };
+    if (!raw) responseObj.body.hint = 'Use --raw to see raw base64';
+  } else {
+    responseObj.body = responseBody;
+  }
+
   return JSON.stringify({
     request: {
       method: req.method,
       url: req.url,
-      headers: req.requestHeaders,
+      headers: redactHeaders(req.requestHeaders, raw),
       body: req.requestBody
     },
-    response: {
-      status: req.status,
-      statusText: req.statusText,
-      headers: req.responseHeaders,
-      body: responseBody
-    }
+    response: responseObj
   }, null, 2);
 }
 
 async function netHandleCommand(cdp, sid, cachedRequests, args) {
   const filter = args[0];
-  const option = args[1];
 
   // Clear cache
   if (filter === 'clear') {
@@ -553,9 +610,10 @@ async function netHandleCommand(cdp, sid, cachedRequests, args) {
     return `Cleared ${count} cached requests`;
   }
 
-  // Detail view: net <id> [--option]
+  // Detail view: net <id> [--option...]
   if (filter && /^\d+$/.test(filter)) {
-    return await netDetailStr(cdp, sid, cachedRequests, parseInt(filter), option);
+    const options = args.slice(1);
+    return await netDetailStr(cdp, sid, cachedRequests, parseInt(filter), options);
   }
 
   // List view
@@ -676,12 +734,13 @@ async function runDaemon(targetId) {
   const SKIP_TYPES = new Set(['image', 'font', 'stylesheet', 'media', 'script', 'other']);
   const cachedRequests = [];
   const pendingRequests = new Map(); // requestId -> request data
+  let nextRequestId = 1;
 
   function addCachedRequest(req) {
     if (cachedRequests.length >= MAX_CACHED_REQUESTS) {
       cachedRequests.shift();
     }
-    req.id = cachedRequests.length + 1;
+    req.id = nextRequestId++;
     cachedRequests.push(req);
     return req.id;
   }
@@ -720,7 +779,16 @@ async function runDaemon(targetId) {
   });
 
   cdp.onEvent('Network.loadingFailed', (params) => {
+    const pending = pendingRequests.get(params.requestId);
+    if (!pending) return;
+
     pendingRequests.delete(params.requestId);
+    pending.status = 0;
+    pending.statusText = params.errorText || 'Failed';
+    pending.errorText = params.errorText;
+    pending.blockedReason = params.blockedReason;
+    pending.canceled = params.canceled;
+    addCachedRequest(pending);
   });
 
   // Shutdown helpers

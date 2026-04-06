@@ -67,6 +67,7 @@ scripts/cdp.mjs net <target> <id>               # view request details (JSON)
 scripts/cdp.mjs net <target> <id> --body        # response body only
 scripts/cdp.mjs net <target> <id> --request-body # request body only
 scripts/cdp.mjs net <target> <id> --headers     # request + response headers
+scripts/cdp.mjs net <target> <id> --raw         # show raw values (no redaction)
 scripts/cdp.mjs net <target> xhr                # filter by type: XHR/Fetch
 scripts/cdp.mjs net <target> error              # filter: status >= 400
 scripts/cdp.mjs net <target> <keyword>          # filter by URL keyword
@@ -74,6 +75,8 @@ scripts/cdp.mjs net <target> clear              # clear cache
 ```
 
 **Smart filtering**: Static resources (images, fonts, CSS, JS) are automatically excluded from cache. Only XHR, Fetch, Document, and WebSocket requests are captured.
+
+**Security**: By default, sensitive headers (authorization, cookie, set-cookie, etc.) are redacted as `[REDACTED]`. Use `--raw` to see original values.
 
 **Cache limit**: 500 requests (FIFO eviction).
 
