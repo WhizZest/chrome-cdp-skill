@@ -1017,7 +1017,16 @@ Usage: cdp <command> [args]
   shot  <target> [file]             Screenshot (default: screenshot-<target>.png in runtime dir); prints coordinate mapping
   html  <target> [selector]         Get HTML (full page or CSS selector)
   nav   <target> <url>              Navigate to URL and wait for load completion
-  net   <target>                    Network performance entries
+  net   <target>                    List cached HTTP requests (captured via CDP Network domain)
+  net   <target> <id>               View request details (JSON)
+  net   <target> <id> --body        Response body only
+  net   <target> <id> --request-body Request body only
+  net   <target> <id> --headers     Request + response headers
+  net   <target> <id> --raw         Show raw values (no redaction)
+  net   <target> xhr                Filter by type: XHR/Fetch
+  net   <target> error              Filter: status >= 400 or failed
+  net   <target> <keyword>          Filter by URL keyword
+  net   <target> clear              Clear request cache
   click   <target> <selector>       Click an element by CSS selector
   clickxy <target> <x> <y>          Click at CSS pixel coordinates (see coordinate note below)
   type    <target> <text>           Type text at current focus via Input.insertText
