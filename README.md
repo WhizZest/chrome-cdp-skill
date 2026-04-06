@@ -39,7 +39,7 @@ scripts/cdp.mjs snap   <target>                   # accessibility tree (compact,
 scripts/cdp.mjs html   <target> [".selector"]     # full HTML or scoped to CSS selector
 scripts/cdp.mjs eval   <target> "expression"      # evaluate JS in page context
 scripts/cdp.mjs nav    <target> https://...       # navigate and wait for load
-scripts/cdp.mjs net    <target>                   # network resource timing
+scripts/cdp.mjs net    <target>                   # list cached HTTP requests (see --help for options)
 scripts/cdp.mjs click  <target> "selector"        # click element by CSS selector
 scripts/cdp.mjs clickxy <target> <x> <y>          # click at CSS pixel coordinates
 scripts/cdp.mjs type   <target> "text"            # type at focused element (works in cross-origin iframes)

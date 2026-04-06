@@ -1020,6 +1020,7 @@ Usage: cdp <command> [args]
   net   <target>                    List cached HTTP requests (captured via CDP Network domain)
   net   <target> <id>               View request details (JSON)
   net   <target> <id> --body        Response body only
+  net   <target> <id> --request-body Request body only
   net   <target> <id> --headers     Request + response headers
   net   <target> <id> --raw         Show raw values (no redaction)
   net   <target> xhr                Filter by type: XHR/Fetch
