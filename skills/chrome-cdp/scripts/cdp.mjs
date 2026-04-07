@@ -430,12 +430,9 @@ async function navStr(cdp, sid, url) {
   const result = await cdp.send('Page.navigate', { url }, sid);
   if (result.errorText) {
     loadEvent.cancel();
-    // Check if this might be a download URL
+    // Check if this might be a download URL and provide user-friendly message
     if (result.errorText === 'net::ERR_ABORTED') {
-      console.warn(`Warning: Navigation aborted (${result.errorText})`);
-      console.warn('This may be a downloadable file (e.g., PDF, TAR, ZIP).');
-      console.warn('Check your browser\'s download directory for the file.');
-      return `Navigation aborted - file download may have been triggered. Check downloads folder.`;
+      throw new Error('Navigation aborted - file download may have been triggered. Check downloads folder.');
     }
     throw new Error(result.errorText);
   }
@@ -1177,8 +1174,15 @@ async function main() {
   if (response.ok) {
     if (response.result) console.log(response.result);
   } else {
-    console.error('Error:', response.error);
-    process.exitCode = 1;
+    // Special handling for download-triggered navigation abort
+    if (response.error && response.error.includes('file download may have been triggered')) {
+      console.log(response.error);
+      // Exit with code 0 since the file was successfully downloaded
+      process.exitCode = 0;
+    } else {
+      console.error('Error:', response.error);
+      process.exitCode = 1;
+    }
   }
 }
 
