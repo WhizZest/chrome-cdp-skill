@@ -430,6 +430,13 @@ async function navStr(cdp, sid, url) {
   const result = await cdp.send('Page.navigate', { url }, sid);
   if (result.errorText) {
     loadEvent.cancel();
+    // Check if this might be a download URL
+    if (result.errorText === 'net::ERR_ABORTED') {
+      console.warn(`Warning: Navigation aborted (${result.errorText})`);
+      console.warn('This may be a downloadable file (e.g., PDF, TAR, ZIP).');
+      console.warn('Check your browser\'s download directory for the file.');
+      return `Navigation aborted - file download may have been triggered. Check downloads folder.`;
+    }
     throw new Error(result.errorText);
   }
   if (result.loaderId) {
