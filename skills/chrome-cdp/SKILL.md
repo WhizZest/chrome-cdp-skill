@@ -95,3 +95,99 @@ CSS px = screenshot image px / DPR
 - Prefer `snap --compact` over `html` for page structure.
 - Use `type` (not eval) to enter text in cross-origin iframes — `click`/`clickxy` to focus first, then `type`.
 - Chrome shows an "Allow debugging" modal once per tab on first access. A background daemon keeps the session alive so subsequent commands need no further approval. Daemons auto-exit after 20 minutes of inactivity.
+
+## Plugin System
+
+The chrome-cdp skill supports plugins for specific use cases. Plugins are located in `scripts/` subdirectories.
+
+### Viewing Available Plugins
+
+```bash
+scripts/plugin.mjs --help          # List all available plugins
+scripts/plugin.mjs <plugin-name>   # Show plugin details
+```
+
+### Plugin Creation Guidelines
+
+To create a new plugin:
+
+1. **Location**: Create a folder in `scripts/` directory (e.g., `scripts/my-plugin/`)
+
+2. **Required Files**:
+   - `info.json`: Plugin metadata
+   - One or more script files (`.mjs`)
+
+3. **Script Requirements**:
+   - Every script must support `-h, --help` parameter to show detailed usage
+   - Scripts should be executable Node.js modules
+
+4. **info.json Format**:
+   ```json
+   {
+     "description": "Brief plugin description",
+     "features": [
+       {
+         "script": "script-name.mjs",
+         "description": "What this script does",
+         "usage": "node script-name.mjs <args> [options]"
+       }
+     ]
+   }
+   ```
+
+   Required fields:
+   - `description`: Plugin description
+   - `features`: Array of script definitions
+     - `script`: Script filename
+     - `description`: Script functionality description
+     - `usage`: Usage syntax
+
+5. **Optional Fields** (for info.json):
+   - `version`: Plugin version
+   - `author`: Author name
+   - `repository`: Repository URL
+   - `license`: License type
+   - `keywords`: Array of keywords
+   - `dependencies`: Object with dependency names and URLs
+
+6. **Important**: When adding new scripts to a plugin:
+   - **Must update info.json**: Add the new script's metadata to the `features` array
+   - The plugin manager will detect and warn about scripts not listed in info.json
+   - This ensures users can discover all available plugin features
+
+### Usage Workflow
+
+1. **Check available plugins first**:
+   ```bash
+   scripts/plugin.mjs --help
+   ```
+   See if any existing plugin meets your needs.
+
+2. **View plugin details**:
+   ```bash
+   scripts/plugin.mjs <plugin-name>
+   ```
+   Check available scripts and their usage.
+
+3. **Use plugin scripts**:
+   ```bash
+   scripts/<plugin-name>/<script>.mjs --help
+   scripts/<plugin-name>/<script>.mjs <args>
+   ```
+
+4. **Fall back to cdp.mjs**:
+   If no plugin fits your needs, use the base `cdp.mjs` commands for direct CDP access.
+
+### Example Plugin Structure
+
+```
+scripts/
+├── cdp.mjs                 # Base CDP commands
+├── plugin.mjs              # Plugin manager
+├── weread/                 # WeRead plugin
+│   ├── info.json          # Plugin metadata
+│   └── extract-chapter.mjs # Chapter extraction script
+└── my-plugin/             # Your custom plugin
+    ├── info.json
+    └── my-script.mjs
+```
