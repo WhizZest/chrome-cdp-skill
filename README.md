@@ -51,6 +51,48 @@ scripts/cdp.mjs stop   [target]                   # stop daemon(s)
 
 `<target>` is a unique prefix of the targetId shown by `list`.
 
+## Plugin System
+
+Plugins extend chrome-cdp for specific use cases. Each plugin lives in its own subdirectory under `scripts/` and is managed as an independent repository.
+
+### View available plugins
+
+```bash
+scripts/plugin.mjs --help          # list all plugins
+scripts/plugin.mjs <plugin-name>   # show plugin details
+```
+
+### Usage workflow
+
+1. Check available plugins with `plugin.mjs --help`
+2. If a plugin fits your needs, use its scripts directly
+3. If no plugin covers your scenario, fall back to `cdp.mjs` for direct CDP access
+
+### Available plugins
+
+| Plugin | Repository | Description |
+|--------|-----------|-------------|
+| weread | [reader-cdp-plugin](https://github.com/WhizZest/reader-cdp-plugin) | 微信读书专用插件 |
+
+### Create a plugin
+
+1. Create a folder under `scripts/` (e.g., `scripts/my-plugin/`)
+2. Add an `info.json` with required fields:
+   ```json
+   {
+     "description": "Plugin description",
+     "features": [
+       {
+         "script": "script-name.mjs",
+         "description": "What this script does",
+         "usage": "node script-name.mjs <args> [options]"
+       }
+     ]
+   }
+   ```
+3. Each script must support `-h, --help`
+4. When adding new scripts, update `info.json` accordingly
+
 ## Why not chrome-devtools-mcp?
 
 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) reconnects on every command, so Chrome's "Allow debugging" modal can re-appear repeatedly and target enumeration times out with many tabs open. `chrome-cdp` holds one persistent daemon per tab — the modal fires once, and it handles 100+ tabs reliably.
