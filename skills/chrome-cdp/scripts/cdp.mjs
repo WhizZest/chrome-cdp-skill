@@ -562,8 +562,18 @@ async function netDetailStr(cdp, sid, cachedRequests, id, options) {
   
   // Handle --save option
   if (saveFile) {
-    writeFileSync(saveFile, responseBody, 'utf8');
-    return `Saved ${responseBody.length} bytes to ${saveFile}`;
+    try {
+      if (base64Encoded && !isTextMimeType(req.mimeType)) {
+        const buf = Buffer.from(responseBody, 'base64');
+        writeFileSync(saveFile, buf);
+        return `Saved ${buf.length} bytes to ${saveFile}`;
+      } else {
+        writeFileSync(saveFile, responseBody, 'utf8');
+        return `Saved ${Buffer.byteLength(responseBody, 'utf8')} bytes to ${saveFile}`;
+      }
+    } catch (e) {
+      return `Failed to save to ${saveFile}: ${e.message}`;
+    }
   }
 
   // Handle --body option
