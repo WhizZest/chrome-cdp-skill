@@ -537,6 +537,12 @@ async function netDetailStr(cdp, sid, cachedRequests, id, options) {
   const showBody = options.includes('--body');
   const showRequestBody = options.includes('--request-body');
   const showHeaders = options.includes('--headers');
+  const saveIdx = options.indexOf('--save');
+  const saveFile = saveIdx >= 0 && options[saveIdx + 1] ? options[saveIdx + 1] : null;
+
+  if (saveFile) {
+    console.error(`DEBUG: saveIdx=${saveIdx}, saveFile=${saveFile}, options=${JSON.stringify(options)}`);
+  }
 
   // Get response body on demand
   let responseBody = null;
@@ -556,6 +562,12 @@ async function netDetailStr(cdp, sid, cachedRequests, id, options) {
     }
   } catch (e) {
     responseBody = `[Failed to get response body: ${e.message}]`;
+  }
+  
+  // Handle --save option
+  if (saveFile) {
+    writeFileSync(saveFile, responseBody, 'utf8');
+    return `Saved ${responseBody.length} bytes to ${saveFile}`;
   }
 
   // Handle --body option
@@ -1027,6 +1039,7 @@ Usage: cdp <command> [args]
   net   <target> <id> --request-body Request body only
   net   <target> <id> --headers     Request + response headers
   net   <target> <id> --raw         Show raw values (no redaction)
+  net   <target> <id> --save <file> Save response body to file
   net   <target> xhr                Filter by type: XHR/Fetch
   net   <target> error              Filter: status >= 400 or failed
   net   <target> <keyword>          Filter by URL keyword
