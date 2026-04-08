@@ -540,10 +540,6 @@ async function netDetailStr(cdp, sid, cachedRequests, id, options) {
   const saveIdx = options.indexOf('--save');
   const saveFile = saveIdx >= 0 && options[saveIdx + 1] ? options[saveIdx + 1] : null;
 
-  if (saveFile) {
-    console.error(`DEBUG: saveIdx=${saveIdx}, saveFile=${saveFile}, options=${JSON.stringify(options)}`);
-  }
-
   // Get response body on demand
   let responseBody = null;
   let base64Encoded = false;

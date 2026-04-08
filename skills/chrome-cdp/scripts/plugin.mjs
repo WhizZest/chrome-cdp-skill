@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
-import { join, resolve, dirname } from 'path';
+import { join, resolve, dirname, sep } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,10 +32,19 @@ function isValidInfoJson(infoPath) {
         const content = readFileSync(infoPath, 'utf8');
         const info = JSON.parse(content);
         
-        return info && 
-               typeof info.description === 'string' &&
-               info.features && 
-               Array.isArray(info.features);
+        if (!info || typeof info.description !== 'string' || !Array.isArray(info.features)) {
+            return false;
+        }
+
+        for (const feature of info.features) {
+            if (typeof feature.script !== 'string' ||
+                typeof feature.description !== 'string' ||
+                typeof feature.usage !== 'string') {
+                return false;
+            }
+        }
+        
+        return true;
     } catch (error) {
         return false;
     }
@@ -95,8 +104,19 @@ function listPlugins() {
 }
 
 function showPluginDetail(pluginName) {
+    if (pluginName.includes('/') || pluginName.includes('\\') || pluginName === '.' || pluginName === '..') {
+        console.error(`错误: 无效的插件名称 "${pluginName}"`);
+        process.exit(1);
+    }
+
     const scriptsDir = __dirname;
-    const pluginDir = join(scriptsDir, pluginName);
+    const pluginDir = resolve(scriptsDir, pluginName);
+    
+    if (!pluginDir.startsWith(scriptsDir + sep)) {
+        console.error(`错误: 无效的插件名称 "${pluginName}"`);
+        process.exit(1);
+    }
+
     const infoPath = join(pluginDir, 'info.json');
     
     if (!existsSync(infoPath)) {
