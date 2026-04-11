@@ -15,18 +15,18 @@ Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no
 
 ## Commands
 
-All commands use `scripts/cdp.mjs`. The `<target>` is a **unique** targetId prefix from `list`; copy the full prefix shown in the `list` output (for example `6BE827FA`). The CLI rejects ambiguous prefixes.
+All commands use `<skill_dir>/scripts/cdp.mjs`. The `<target>` is a **unique** targetId prefix from `list`; copy the full prefix shown in the `list` output (for example `6BE827FA`). The CLI rejects ambiguous prefixes.
 
 ### List open pages
 
 ```bash
-scripts/cdp.mjs list
+<skill_dir>/scripts/cdp.mjs list
 ```
 
 ### Take a screenshot
 
 ```bash
-scripts/cdp.mjs shot <target> [file]    # default: screenshot-<target>.png in runtime dir
+<skill_dir>/scripts/cdp.mjs shot <target> [file]    # default: screenshot-<target>.png in runtime dir
 ```
 
 Captures the **viewport only**. Scroll first with `eval` if you need content below the fold. Output includes the page's DPR and coordinate conversion hint (see **Coordinates** below).
@@ -34,13 +34,13 @@ Captures the **viewport only**. Scroll first with `eval` if you need content bel
 ### Accessibility tree snapshot
 
 ```bash
-scripts/cdp.mjs snap <target>
+<skill_dir>/scripts/cdp.mjs snap <target>
 ```
 
 ### Evaluate JavaScript
 
 ```bash
-scripts/cdp.mjs eval <target> <expr>
+<skill_dir>/scripts/cdp.mjs eval <target> <expr>
 ```
 
 > **Watch out:** avoid index-based selection (`querySelectorAll(...)[i]`) across multiple `eval` calls when the DOM can change between them (e.g. after clicking Ignore, card indices shift). Collect all data in one `eval` or use stable selectors.
@@ -48,31 +48,31 @@ scripts/cdp.mjs eval <target> <expr>
 ### Other commands
 
 ```bash
-scripts/cdp.mjs html    <target> [selector]   # full page or element HTML
-scripts/cdp.mjs nav     <target> <url>         # navigate and wait for load
-scripts/cdp.mjs click   <target> <selector>    # click element by CSS selector
-scripts/cdp.mjs clickxy <target> <x> <y>       # click at CSS pixel coords
-scripts/cdp.mjs type    <target> <text>         # Input.insertText at current focus; works in cross-origin iframes unlike eval
-scripts/cdp.mjs keypress <target> <key>         # press a key via Input.dispatchKeyEvent; keys: ArrowUp/Down/Left/Right, Enter, Tab, Escape, Backspace, Delete, Home, End, PageUp/PageDown, Space, F1-F12, or single chars a-z 0-9
-scripts/cdp.mjs loadall <target> <selector> [ms]  # click "load more" until gone (default 1500ms between clicks)
-scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
-scripts/cdp.mjs open    [url]                  # open new tab (each triggers Allow prompt)
-scripts/cdp.mjs stop    [target]               # stop daemon(s)
+<skill_dir>/scripts/cdp.mjs html    <target> [selector]   # full page or element HTML
+<skill_dir>/scripts/cdp.mjs nav     <target> <url>         # navigate and wait for load
+<skill_dir>/scripts/cdp.mjs click   <target> <selector>    # click element by CSS selector
+<skill_dir>/scripts/cdp.mjs clickxy <target> <x> <y>       # click at CSS pixel coords
+<skill_dir>/scripts/cdp.mjs type    <target> <text>         # Input.insertText at current focus; works in cross-origin iframes unlike eval   
+<skill_dir>/scripts/cdp.mjs keypress <target> <key>         # press a key via Input.dispatchKeyEvent; keys: ArrowUp/Down/Left/Right, Enter, Tab, Escape, Backspace, Delete, Home, End, PageUp/PageDown, Space, F1-F12, or single chars a-z 0-9
+<skill_dir>/scripts/cdp.mjs loadall <target> <selector> [ms]  # click "load more" until gone (default 1500ms between clicks)
+<skill_dir>/scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
+<skill_dir>/scripts/cdp.mjs open    [url]                  # open new tab (each triggers Allow prompt)
+<skill_dir>/scripts/cdp.mjs stop    [target]               # stop daemon(s)
 ```
 
 ### Network requests
 
 ```bash
-scripts/cdp.mjs net <target>                    # list cached requests
-scripts/cdp.mjs net <target> <id>               # view request details (JSON)
-scripts/cdp.mjs net <target> <id> --body        # response body only
-scripts/cdp.mjs net <target> <id> --request-body # request body only
-scripts/cdp.mjs net <target> <id> --headers     # request + response headers
-scripts/cdp.mjs net <target> <id> --raw         # show raw values (no redaction)
-scripts/cdp.mjs net <target> xhr                # filter by type: XHR/Fetch
-scripts/cdp.mjs net <target> error              # filter: status >= 400
-scripts/cdp.mjs net <target> <keyword>          # filter by URL keyword
-scripts/cdp.mjs net <target> clear              # clear cache
+<skill_dir>/scripts/cdp.mjs net <target>                    # list cached requests
+<skill_dir>/scripts/cdp.mjs net <target> <id>               # view request details (JSON)
+<skill_dir>/scripts/cdp.mjs net <target> <id> --body        # response body only (base64 encoded)
+<skill_dir>/scripts/cdp.mjs net <target> <id> --request-body # request body only
+<skill_dir>/scripts/cdp.mjs net <target> <id> --headers     # request + response headers
+<skill_dir>/scripts/cdp.mjs net <target> <id> --raw         # show raw values (no redaction)
+<skill_dir>/scripts/cdp.mjs net <target> xhr                # filter by type: XHR/Fetch
+<skill_dir>/scripts/cdp.mjs net <target> error              # filter: status >= 400
+<skill_dir>/scripts/cdp.mjs net <target> <keyword>          # filter by URL keyword
+<skill_dir>/scripts/cdp.mjs net <target> clear              # clear cache
 ```
 
 **Smart filtering**: Static resources (images, fonts, CSS, JS) are automatically excluded from cache. Only XHR, Fetch, Document, and WebSocket requests are captured.
@@ -100,23 +100,23 @@ CSS px = screenshot image px / DPR
 
 ## Plugin System
 
-The chrome-cdp skill supports plugins for specific use cases. Plugins are located in `scripts/` subdirectories.
+The chrome-cdp skill supports plugins for specific use cases. Plugins are located in `<skill_dir>/scripts/` subdirectories.
 
 ### Viewing Available Plugins
 
 ```bash
-scripts/plugin.mjs --help          # List all available plugins
-scripts/plugin.mjs <plugin-name>   # Show plugin details
+<skill_dir>/scripts/plugin.mjs --help          # List all available plugins
+<skill_dir>/scripts/plugin.mjs <plugin-name>   # Show plugin details
 ```
 
 ### Plugin Creation Guidelines
 
 To create a new plugin:
 
-1. **Location**: Create a folder in `scripts/` directory (e.g., `scripts/my-plugin/`)
+1. **Location**: Create a folder in `<skill_dir>/scripts/` directory (e.g., `<skill_dir>/scripts/my-plugin/`)
 
 2. **Required Files**:
-   - `info.json`: Plugin metadata
+   - `<skill_dir>/scripts/my-plugin/info.json`: Plugin metadata
    - One or more script files (`.mjs`)
 
 3. **Script Requirements**:
@@ -161,20 +161,20 @@ To create a new plugin:
 
 1. **Check available plugins first**:
    ```bash
-   scripts/plugin.mjs --help
+   <skill_dir>/scripts/plugin.mjs --help
    ```
    See if any existing plugin meets your needs.
 
 2. **View plugin details**:
    ```bash
-   scripts/plugin.mjs <plugin-name>
+   <skill_dir>/scripts/plugin.mjs <plugin-name>
    ```
    Check available scripts and their usage.
 
 3. **Use plugin scripts**:
    ```bash
-   scripts/<plugin-name>/<script>.mjs --help
-   scripts/<plugin-name>/<script>.mjs <args>
+   <skill_dir>/scripts/<plugin-name>/<script>.mjs --help
+   <skill_dir>/scripts/<plugin-name>/<script>.mjs <args>
    ```
 
 4. **Fall back to cdp.mjs**:
@@ -183,7 +183,7 @@ To create a new plugin:
 ### Example Plugin Structure
 
 ```
-scripts/
+<skill_dir>/scripts/
 ├── cdp.mjs                 # Base CDP commands
 ├── plugin.mjs              # Plugin manager
 ├── weread/                 # WeRead plugin
