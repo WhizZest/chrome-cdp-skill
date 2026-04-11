@@ -5,7 +5,7 @@
 //
 // Per-tab persistent daemon: page commands go through a daemon that holds
 // the CDP session open. Chrome's "Allow debugging" modal fires once per
-// daemon (= once per tab). Daemons auto-exit after 20min idle.
+// daemon (= once per tab). Daemons auto-exit after 120min idle.
 
 import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
@@ -15,7 +15,7 @@ import net from 'net';
 
 const TIMEOUT = 15000;
 const NAVIGATION_TIMEOUT = 30000;
-const IDLE_TIMEOUT = 20 * 60 * 1000;
+const IDLE_TIMEOUT = 120 * 60 * 1000;
 const DAEMON_CONNECT_RETRIES = 20;
 const DAEMON_CONNECT_DELAY = 300;
 const MIN_TARGET_PREFIX_LEN = 8;
@@ -680,6 +680,63 @@ async function typeStr(cdp, sid, text) {
   return `Typed ${text.length} characters`;
 }
 
+const KEY_MAP = {
+  'Enter': { key: 'Enter', code: 'Enter', keyCode: 13, windowsVirtualKeyCode: 13 },
+  'Tab': { key: 'Tab', code: 'Tab', keyCode: 9, windowsVirtualKeyCode: 9 },
+  'Escape': { key: 'Escape', code: 'Escape', keyCode: 27, windowsVirtualKeyCode: 27 },
+  'Backspace': { key: 'Backspace', code: 'Backspace', keyCode: 8, windowsVirtualKeyCode: 8 },
+  'Delete': { key: 'Delete', code: 'Delete', keyCode: 46, windowsVirtualKeyCode: 46 },
+  'ArrowUp': { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, windowsVirtualKeyCode: 38 },
+  'ArrowDown': { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, windowsVirtualKeyCode: 40 },
+  'ArrowLeft': { key: 'ArrowLeft', code: 'ArrowLeft', keyCode: 37, windowsVirtualKeyCode: 37 },
+  'ArrowRight': { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, windowsVirtualKeyCode: 39 },
+  'Home': { key: 'Home', code: 'Home', keyCode: 36, windowsVirtualKeyCode: 36 },
+  'End': { key: 'End', code: 'End', keyCode: 35, windowsVirtualKeyCode: 35 },
+  'PageUp': { key: 'PageUp', code: 'PageUp', keyCode: 33, windowsVirtualKeyCode: 33 },
+  'PageDown': { key: 'PageDown', code: 'PageDown', keyCode: 34, windowsVirtualKeyCode: 34 },
+  'Space': { key: ' ', code: 'Space', keyCode: 32, windowsVirtualKeyCode: 32 },
+  'F1': { key: 'F1', code: 'F1', keyCode: 112, windowsVirtualKeyCode: 112 },
+  'F2': { key: 'F2', code: 'F2', keyCode: 113, windowsVirtualKeyCode: 113 },
+  'F3': { key: 'F3', code: 'F3', keyCode: 114, windowsVirtualKeyCode: 114 },
+  'F4': { key: 'F4', code: 'F4', keyCode: 115, windowsVirtualKeyCode: 115 },
+  'F5': { key: 'F5', code: 'F5', keyCode: 116, windowsVirtualKeyCode: 116 },
+  'F6': { key: 'F6', code: 'F6', keyCode: 117, windowsVirtualKeyCode: 117 },
+  'F7': { key: 'F7', code: 'F7', keyCode: 118, windowsVirtualKeyCode: 118 },
+  'F8': { key: 'F8', code: 'F8', keyCode: 119, windowsVirtualKeyCode: 119 },
+  'F9': { key: 'F9', code: 'F9', keyCode: 120, windowsVirtualKeyCode: 120 },
+  'F10': { key: 'F10', code: 'F10', keyCode: 121, windowsVirtualKeyCode: 121 },
+  'F11': { key: 'F11', code: 'F11', keyCode: 122, windowsVirtualKeyCode: 122 },
+  'F12': { key: 'F12', code: 'F12', keyCode: 123, windowsVirtualKeyCode: 123 },
+};
+
+async function keypressStr(cdp, sid, keyName) {
+  if (!keyName) throw new Error('key name required (e.g. ArrowRight, Enter, F5)');
+  let keyDef;
+  if (KEY_MAP[keyName]) {
+    keyDef = KEY_MAP[keyName];
+  } else if (keyName.length === 1) {
+    const upper = keyName.toUpperCase();
+    const vk = upper.charCodeAt(0);
+    let code;
+    if (/[0-9]/.test(keyName)) {
+      code = `Digit${keyName}`;
+    } else if (/[a-zA-Z]/.test(keyName)) {
+      code = `Key${upper}`;
+    } else {
+      throw new Error(`Unsupported single character: "${keyName}". Only a-z and 0-9 are supported.`);
+    }
+    keyDef = { key: keyName, code, keyCode: vk, windowsVirtualKeyCode: vk };
+  } else {
+    throw new Error(`Unknown key: "${keyName}". Supported: ${Object.keys(KEY_MAP).join(', ')}, or single characters like a-z, 0-9`);
+  }
+  const downParams = { type: 'keyDown', ...keyDef, modifiers: 0 };
+  const upParams = { type: 'keyUp', ...keyDef, modifiers: 0 };
+  await cdp.send('Input.dispatchKeyEvent', downParams, sid);
+  await sleep(30);
+  await cdp.send('Input.dispatchKeyEvent', upParams, sid);
+  return `Pressed ${keyName}`;
+}
+
 // Load-more: repeatedly click a button/selector until it disappears
 async function loadAllStr(cdp, sid, selector, intervalMs = 1500) {
   if (!selector) throw new Error('CSS selector required');
@@ -867,6 +924,7 @@ async function runDaemon(targetId) {
         case 'click': result = await clickStr(cdp, sessionId, args[0]); break;
         case 'clickxy': result = await clickXyStr(cdp, sessionId, args[0], args[1]); break;
         case 'type': result = await typeStr(cdp, sessionId, args[0]); break;
+        case 'keypress': result = await keypressStr(cdp, sessionId, args[0]); break;
         case 'loadall': result = await loadAllStr(cdp, sessionId, args[0], args[1] ? parseInt(args[1]) : 1500); break;
         case 'evalraw': result = await evalRawStr(cdp, sessionId, args[0], args[1]); break;
         case 'stop': return { ok: true, result: '', stopAfter: true };
@@ -1054,6 +1112,10 @@ Usage: cdp <command> [args]
   clickxy <target> <x> <y>          Click at CSS pixel coordinates (see coordinate note below)
   type    <target> <text>           Type text at current focus via Input.insertText
                                     Works in cross-origin iframes unlike eval-based approaches
+  keypress <target> <key>           Press a key via Input.dispatchKeyEvent
+                                    Keys: ArrowUp/Down/Left/Right, Enter, Tab, Escape,
+                                    Backspace, Delete, Home, End, PageUp/PageDown, Space, F1-F12
+                                    Or single characters: a-z, 0-9
   loadall <target> <selector> [ms]  Repeatedly click a "load more" button until it disappears
                                     Optional interval in ms between clicks (default 1500)
   evalraw <target> <method> [json]  Send a raw CDP command; returns JSON result
@@ -1089,13 +1151,13 @@ DAEMON IPC (for advanced use / scripting)
     Response: {"id":<number>, "ok":true,  "result":"<string>"}
            or {"id":<number>, "ok":false, "error":"<message>"}
   Commands mirror the CLI: snap, eval, shot, html, nav, net, click, clickxy,
-  type, loadall, evalraw, stop. Use evalraw to send arbitrary CDP methods.
-  The socket disappears after 20 min of inactivity or when the tab closes.
+  type, keypress, loadall, evalraw, stop. Use evalraw to send arbitrary CDP methods.
+  The socket disappears after 120 min of inactivity or when the tab closes.
 `;
 
 const NEEDS_TARGET = new Set([
   'snap','snapshot','eval','shot','screenshot','html','nav','navigate',
-  'net','network','click','clickxy','type','loadall','evalraw',
+  'net','network','click','clickxy','type','keypress','loadall','evalraw',
 ]);
 
 async function main() {

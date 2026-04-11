@@ -43,6 +43,7 @@ scripts/cdp.mjs net    <target>                   # list cached HTTP requests (s
 scripts/cdp.mjs click  <target> "selector"        # click element by CSS selector
 scripts/cdp.mjs clickxy <target> <x> <y>          # click at CSS pixel coordinates
 scripts/cdp.mjs type   <target> "text"            # type at focused element (works in cross-origin iframes)
+scripts/cdp.mjs keypress <target> <key>           # press a key (ArrowUp/Down/Left/Right, Enter, Tab, Escape, Backspace, Delete, Home, End, PageUp/PageDown, Space, F1-F12, a-z, 0-9)
 scripts/cdp.mjs loadall <target> "selector"       # click "load more" until gone
 scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
 scripts/cdp.mjs open   [url]                      # open new tab (triggers Allow prompt)
