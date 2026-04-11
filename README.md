@@ -32,22 +32,24 @@ The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux,
 
 ## Usage
 
+`<skill_dir>` refers to the **chrome-cdp skill folder path** (i.e., the `skills/chrome-cdp/` directory).
+
 ```bash
-scripts/cdp.mjs list                              # list open tabs
-scripts/cdp.mjs shot   <target>                   # screenshot → runtime dir
-scripts/cdp.mjs snap   <target>                   # accessibility tree (compact, semantic)
-scripts/cdp.mjs html   <target> [".selector"]     # full HTML or scoped to CSS selector
-scripts/cdp.mjs eval   <target> "expression"      # evaluate JS in page context
-scripts/cdp.mjs nav    <target> https://...       # navigate and wait for load
-scripts/cdp.mjs net    <target>                   # list cached HTTP requests (see --help for options)
-scripts/cdp.mjs click  <target> "selector"        # click element by CSS selector
-scripts/cdp.mjs clickxy <target> <x> <y>          # click at CSS pixel coordinates
-scripts/cdp.mjs type   <target> "text"            # type at focused element (works in cross-origin iframes)
-scripts/cdp.mjs keypress <target> <key>           # press a key (ArrowUp/Down/Left/Right, Enter, Tab, Escape, Backspace, Delete, Home, End, PageUp/PageDown, Space, F1-F12, a-z, 0-9)
-scripts/cdp.mjs loadall <target> "selector"       # click "load more" until gone
-scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
-scripts/cdp.mjs open   [url]                      # open new tab (triggers Allow prompt)
-scripts/cdp.mjs stop   [target]                   # stop daemon(s)
+<skill_dir>/scripts/cdp.mjs list                              # list open tabs
+<skill_dir>/scripts/cdp.mjs shot   <target>                   # screenshot → runtime dir
+<skill_dir>/scripts/cdp.mjs snap   <target>                   # accessibility tree (compact, semantic)
+<skill_dir>/scripts/cdp.mjs html   <target> [".selector"]     # full HTML or scoped to CSS selector
+<skill_dir>/scripts/cdp.mjs eval   <target> "expression"      # evaluate JS in page context
+<skill_dir>/scripts/cdp.mjs nav    <target> https://...       # navigate and wait for load
+<skill_dir>/scripts/cdp.mjs net    <target>                   # list cached HTTP requests (see --help for options)
+<skill_dir>/scripts/cdp.mjs click  <target> "selector"        # click element by CSS selector
+<skill_dir>/scripts/cdp.mjs clickxy <target> <x> <y>          # click at CSS pixel coordinates
+<skill_dir>/scripts/cdp.mjs type   <target> "text"            # type at focused element (works in cross-origin iframes)
+<skill_dir>/scripts/cdp.mjs keypress <target> <key>           # press a key (ArrowUp/Down/Left/Right, Enter, Tab, Escape, Backspace, Delete, Home, End, PageUp/PageDown, Space, F1-F12, a-z, 0-9)
+<skill_dir>/scripts/cdp.mjs loadall <target> "selector"       # click "load more" until gone
+<skill_dir>/scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
+<skill_dir>/scripts/cdp.mjs open   [url]                      # open new tab (triggers Allow prompt)
+<skill_dir>/scripts/cdp.mjs stop   [target]                   # stop daemon(s)
 ```
 
 `<target>` is a unique prefix of the targetId shown by `list`.
@@ -59,8 +61,8 @@ Plugins extend chrome-cdp for specific use cases. Each plugin lives in its own s
 ### View available plugins
 
 ```bash
-scripts/plugin.mjs --help          # list all plugins
-scripts/plugin.mjs <plugin-name>   # show plugin details
+<skill_dir>/scripts/plugin.mjs --help          # list all plugins
+<skill_dir>/scripts/plugin.mjs <plugin-name>   # show plugin details
 ```
 
 ### Usage workflow
@@ -77,7 +79,7 @@ scripts/plugin.mjs <plugin-name>   # show plugin details
 
 ### Create a plugin
 
-1. Create a folder under `scripts/` (e.g., `scripts/my-plugin/`)
+1. Create a folder under `<skill_dir>/scripts/` (e.g., `<skill_dir>/scripts/my-plugin/`)
 2. Add an `info.json` with required fields:
    ```json
    {
