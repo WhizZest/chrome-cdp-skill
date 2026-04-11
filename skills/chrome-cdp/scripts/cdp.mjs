@@ -5,7 +5,7 @@
 //
 // Per-tab persistent daemon: page commands go through a daemon that holds
 // the CDP session open. Chrome's "Allow debugging" modal fires once per
-// daemon (= once per tab). Daemons auto-exit after 20min idle.
+// daemon (= once per tab). Daemons auto-exit after 120min idle.
 
 import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
@@ -717,7 +717,15 @@ async function keypressStr(cdp, sid, keyName) {
   } else if (keyName.length === 1) {
     const upper = keyName.toUpperCase();
     const vk = upper.charCodeAt(0);
-    keyDef = { key: keyName, code: `Key${upper}`, keyCode: vk, windowsVirtualKeyCode: vk };
+    let code;
+    if (/[0-9]/.test(keyName)) {
+      code = `Digit${keyName}`;
+    } else if (/[a-zA-Z]/.test(keyName)) {
+      code = `Key${upper}`;
+    } else {
+      throw new Error(`Unsupported single character: "${keyName}". Only a-z and 0-9 are supported.`);
+    }
+    keyDef = { key: keyName, code, keyCode: vk, windowsVirtualKeyCode: vk };
   } else {
     throw new Error(`Unknown key: "${keyName}". Supported: ${Object.keys(KEY_MAP).join(', ')}, or single characters like a-z, 0-9`);
   }
@@ -1144,7 +1152,7 @@ DAEMON IPC (for advanced use / scripting)
            or {"id":<number>, "ok":false, "error":"<message>"}
   Commands mirror the CLI: snap, eval, shot, html, nav, net, click, clickxy,
   type, keypress, loadall, evalraw, stop. Use evalraw to send arbitrary CDP methods.
-  The socket disappears after 20 min of inactivity or when the tab closes.
+  The socket disappears after 120 min of inactivity or when the tab closes.
 `;
 
 const NEEDS_TARGET = new Set([
