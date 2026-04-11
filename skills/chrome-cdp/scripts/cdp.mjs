@@ -455,15 +455,8 @@ async function netStr(cdp, sid) {
   ).join('\n');
 }
 
-function netListStr(cachedRequests, requestIdState, args) {
+function netListStr(cachedRequests, args) {
   const filter = args[0];
-
-  if (filter === 'clear') {
-    const count = cachedRequests.length;
-    cachedRequests.length = 0;
-    requestIdState.next = 1;
-    return `Cleared ${count} cached requests`;
-  }
 
   if (cachedRequests.length === 0) {
     return 'No cached requests. Navigate to a page first.';
@@ -641,7 +634,7 @@ async function netHandleCommand(cdp, sid, cachedRequests, requestIdState, args) 
   }
 
   // List view
-  return netListStr(cachedRequests, requestIdState, args);
+  return netListStr(cachedRequests, args);
 }
 
 // Click element by CSS selector
