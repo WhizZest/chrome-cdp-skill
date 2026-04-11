@@ -455,12 +455,13 @@ async function netStr(cdp, sid) {
   ).join('\n');
 }
 
-function netListStr(cachedRequests, args) {
+function netListStr(cachedRequests, requestIdState, args) {
   const filter = args[0];
 
   if (filter === 'clear') {
     const count = cachedRequests.length;
     cachedRequests.length = 0;
+    requestIdState.next = 1;
     return `Cleared ${count} cached requests`;
   }
 
@@ -622,13 +623,14 @@ async function netDetailStr(cdp, sid, cachedRequests, id, options) {
   }, null, 2);
 }
 
-async function netHandleCommand(cdp, sid, cachedRequests, args) {
+async function netHandleCommand(cdp, sid, cachedRequests, requestIdState, args) {
   const filter = args[0];
 
   // Clear cache
   if (filter === 'clear') {
     const count = cachedRequests.length;
     cachedRequests.length = 0;
+    requestIdState.next = 1;
     return `Cleared ${count} cached requests`;
   }
 
@@ -639,7 +641,7 @@ async function netHandleCommand(cdp, sid, cachedRequests, args) {
   }
 
   // List view
-  return netListStr(cachedRequests, args);
+  return netListStr(cachedRequests, requestIdState, args);
 }
 
 // Click element by CSS selector
@@ -813,13 +815,13 @@ async function runDaemon(targetId) {
   const SKIP_TYPES = new Set(['image', 'font', 'stylesheet', 'media', 'script', 'other']);
   const cachedRequests = [];
   const pendingRequests = new Map(); // requestId -> request data
-  let nextRequestId = 1;
+  const requestIdState = { next: 1 };
 
   function addCachedRequest(req) {
     if (cachedRequests.length >= MAX_CACHED_REQUESTS) {
       cachedRequests.shift();
     }
-    req.id = nextRequestId++;
+    req.id = requestIdState.next++;
     cachedRequests.push(req);
     return req.id;
   }
@@ -920,7 +922,7 @@ async function runDaemon(targetId) {
         case 'shot': case 'screenshot': result = await shotStr(cdp, sessionId, args[0], targetId); break;
         case 'html': result = await htmlStr(cdp, sessionId, args[0]); break;
         case 'nav': case 'navigate': result = await navStr(cdp, sessionId, args[0]); break;
-        case 'net': case 'network': result = await netHandleCommand(cdp, sessionId, cachedRequests, args); break;
+        case 'net': case 'network': result = await netHandleCommand(cdp, sessionId, cachedRequests, requestIdState, args); break;
         case 'click': result = await clickStr(cdp, sessionId, args[0]); break;
         case 'clickxy': result = await clickXyStr(cdp, sessionId, args[0], args[1]); break;
         case 'type': result = await typeStr(cdp, sessionId, args[0]); break;
