@@ -15,7 +15,7 @@ Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no
 
 ## Commands
 
-All commands use `<skill_dir>/scripts/cdp.mjs`. The `<target>` is a **unique** targetId prefix from `list`; copy the full prefix shown in the `list` output (for example `6BE827FA`). The CLI rejects ambiguous prefixes.
+`<skill_dir>` refers to the **chrome-cdp skill folder path** (i.e., the directory containing this `SKILL.md` file). All commands use `<skill_dir>/scripts/cdp.mjs`. The `<target>` is a **unique** targetId prefix from `list`; copy the full prefix shown in the `list` output (for example `6BE827FA`). The CLI rejects ambiguous prefixes.
 
 ### List open pages
 
@@ -65,7 +65,7 @@ Captures the **viewport only**. Scroll first with `eval` if you need content bel
 ```bash
 <skill_dir>/scripts/cdp.mjs net <target>                    # list cached requests
 <skill_dir>/scripts/cdp.mjs net <target> <id>               # view request details (JSON)
-<skill_dir>/scripts/cdp.mjs net <target> <id> --body        # response body only (base64 encoded)
+<skill_dir>/scripts/cdp.mjs net <target> <id> --body        # response body only
 <skill_dir>/scripts/cdp.mjs net <target> <id> --request-body # request body only
 <skill_dir>/scripts/cdp.mjs net <target> <id> --headers     # request + response headers
 <skill_dir>/scripts/cdp.mjs net <target> <id> --raw         # show raw values (no redaction)
