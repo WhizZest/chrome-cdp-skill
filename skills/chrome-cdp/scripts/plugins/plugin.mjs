@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const pluginsDir = join(__dirname, 'plugins');
+const pluginsDir = __dirname;
 
 function printHelp() {
     console.log(`
