@@ -18,6 +18,8 @@ import {
 } from './lib/constants.mjs';
 import { sleep, sockPath, resolvePrefix, redactHeaders, isTextMimeType } from './lib/utils.mjs';
 import { CDP, getWsUrl, getPages, formatPageList } from './lib/cdp-client.mjs';
+import { getCommandHandler } from './lib/command-registry.mjs';
+import { evalStr } from './commands/eval.mjs';
 
 function shouldShowAxNode(node, compact = false) {
   const role = node.role?.value || '';
@@ -83,18 +85,6 @@ async function snapshotStr(cdp, sid, compact = false) {
   for (const node of nodes) visit(node, 0);
 
   return lines.join('\n');
-}
-
-async function evalStr(cdp, sid, expression) {
-  await cdp.send('Runtime.enable', {}, sid);
-  const result = await cdp.send('Runtime.evaluate', {
-    expression, returnByValue: true, awaitPromise: true,
-  }, sid);
-  if (result.exceptionDetails) {
-    throw new Error(result.exceptionDetails.text || result.exceptionDetails.exception?.description);
-  }
-  const val = result.result.value;
-  return typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val ?? '');
 }
 
 async function shotStr(cdp, sid, filePath, targetId) {
@@ -457,17 +447,6 @@ async function loadAllStr(cdp, sid, selector, intervalMs = 1500) {
 }
 
 // Send a raw CDP command and return the result as JSON
-async function evalRawStr(cdp, sid, method, paramsJson) {
-  if (!method) throw new Error('CDP method required (e.g. "DOM.getDocument")');
-  let params = {};
-  if (paramsJson) {
-    try { params = JSON.parse(paramsJson); }
-    catch { throw new Error(`Invalid JSON params: ${paramsJson}`); }
-  }
-  const result = await cdp.send(method, params, sid);
-  return JSON.stringify(result, null, 2);
-}
-
 // ---------------------------------------------------------------------------
 // Per-tab daemon
 // ---------------------------------------------------------------------------
@@ -595,6 +574,11 @@ async function runDaemon(targetId) {
   async function handleCommand({ cmd, args }) {
     resetIdle();
     try {
+      const handler = getCommandHandler(cmd);
+      if (handler) {
+        const result = await handler({ cdp, sessionId, cachedRequests, requestIdState, args, targetId });
+        return { ok: true, result: result ?? '' };
+      }
       let result;
       switch (cmd) {
         case 'list': {
@@ -608,7 +592,6 @@ async function runDaemon(targetId) {
           break;
         }
         case 'snap': case 'snapshot': result = await snapshotStr(cdp, sessionId, true); break;
-        case 'eval': result = await evalStr(cdp, sessionId, args[0]); break;
         case 'shot': case 'screenshot': result = await shotStr(cdp, sessionId, args[0], targetId); break;
         case 'html': result = await htmlStr(cdp, sessionId, args[0]); break;
         case 'nav': case 'navigate': result = await navStr(cdp, sessionId, args[0]); break;
@@ -618,7 +601,6 @@ async function runDaemon(targetId) {
         case 'type': result = await typeStr(cdp, sessionId, args[0]); break;
         case 'keypress': result = await keypressStr(cdp, sessionId, args[0]); break;
         case 'loadall': result = await loadAllStr(cdp, sessionId, args[0], args[1] ? parseInt(args[1]) : 1500); break;
-        case 'evalraw': result = await evalRawStr(cdp, sessionId, args[0], args[1]); break;
         case 'stop': return { ok: true, result: '', stopAfter: true };
         default: return { ok: false, error: `Unknown command: ${cmd}` };
       }
