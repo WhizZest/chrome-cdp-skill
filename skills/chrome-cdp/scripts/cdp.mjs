@@ -7,27 +7,16 @@
 // the CDP session open. Chrome's "Allow debugging" modal fires once per
 // daemon (= once per tab). Daemons auto-exit after 120min idle.
 
-import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
-import { homedir } from 'os';
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { spawn, execFileSync } from 'child_process';
 import net from 'net';
-
-const TIMEOUT = 15000;
-const NAVIGATION_TIMEOUT = 30000;
-const IDLE_TIMEOUT = 120 * 60 * 1000;
-const DAEMON_CONNECT_RETRIES = 20;
-const DAEMON_CONNECT_DELAY = 300;
-const MIN_TARGET_PREFIX_LEN = 8;
-const IS_WINDOWS = process.platform === 'win32';
-if (!IS_WINDOWS) process.umask(0o077);
-const RUNTIME_DIR = IS_WINDOWS
-  ? resolve(process.env.LOCALAPPDATA || resolve(homedir(), 'AppData', 'Local'), 'cdp')
-  : process.env.XDG_RUNTIME_DIR
-    ? resolve(process.env.XDG_RUNTIME_DIR, 'cdp')
-    : resolve(homedir(), '.cache', 'cdp');
-try { mkdirSync(RUNTIME_DIR, { recursive: true, mode: 0o700 }); } catch {}
-const PAGES_CACHE = resolve(RUNTIME_DIR, 'pages.json');
+import {
+  TIMEOUT, NAVIGATION_TIMEOUT, IDLE_TIMEOUT,
+  DAEMON_CONNECT_RETRIES, DAEMON_CONNECT_DELAY,
+  MIN_TARGET_PREFIX_LEN, IS_WINDOWS, RUNTIME_DIR, PAGES_CACHE,
+  SENSITIVE_HEADERS, TEXT_MIME_TYPES, KEY_MAP, NEEDS_TARGET,
+} from './lib/constants.mjs';
 
 function sockPath(targetId) {
   return IS_WINDOWS
@@ -499,12 +488,6 @@ function netListStr(cachedRequests, args) {
   return lines.join('\n');
 }
 
-const SENSITIVE_HEADERS = new Set([
-  'authorization', 'proxy-authorization', 'cookie', 'set-cookie',
-  'x-api-key', 'x-auth-token', 'x-access-token', 'x-csrf-token',
-  'www-authenticate', 'proxy-authenticate'
-]);
-
 function redactHeaders(headers, raw = false) {
   if (raw || !headers || typeof headers !== 'object') return headers;
   const redacted = {};
@@ -514,8 +497,6 @@ function redactHeaders(headers, raw = false) {
   }
   return redacted;
 }
-
-const TEXT_MIME_TYPES = ['text/', 'application/json', 'application/xml', 'application/javascript', 'application/x-www-form-urlencoded'];
 
 function isTextMimeType(mimeType) {
   if (!mimeType) return false;
@@ -674,35 +655,6 @@ async function typeStr(cdp, sid, text) {
   await cdp.send('Input.insertText', { text }, sid);
   return `Typed ${text.length} characters`;
 }
-
-const KEY_MAP = {
-  'Enter': { key: 'Enter', code: 'Enter', keyCode: 13, windowsVirtualKeyCode: 13 },
-  'Tab': { key: 'Tab', code: 'Tab', keyCode: 9, windowsVirtualKeyCode: 9 },
-  'Escape': { key: 'Escape', code: 'Escape', keyCode: 27, windowsVirtualKeyCode: 27 },
-  'Backspace': { key: 'Backspace', code: 'Backspace', keyCode: 8, windowsVirtualKeyCode: 8 },
-  'Delete': { key: 'Delete', code: 'Delete', keyCode: 46, windowsVirtualKeyCode: 46 },
-  'ArrowUp': { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, windowsVirtualKeyCode: 38 },
-  'ArrowDown': { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, windowsVirtualKeyCode: 40 },
-  'ArrowLeft': { key: 'ArrowLeft', code: 'ArrowLeft', keyCode: 37, windowsVirtualKeyCode: 37 },
-  'ArrowRight': { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, windowsVirtualKeyCode: 39 },
-  'Home': { key: 'Home', code: 'Home', keyCode: 36, windowsVirtualKeyCode: 36 },
-  'End': { key: 'End', code: 'End', keyCode: 35, windowsVirtualKeyCode: 35 },
-  'PageUp': { key: 'PageUp', code: 'PageUp', keyCode: 33, windowsVirtualKeyCode: 33 },
-  'PageDown': { key: 'PageDown', code: 'PageDown', keyCode: 34, windowsVirtualKeyCode: 34 },
-  'Space': { key: ' ', code: 'Space', keyCode: 32, windowsVirtualKeyCode: 32 },
-  'F1': { key: 'F1', code: 'F1', keyCode: 112, windowsVirtualKeyCode: 112 },
-  'F2': { key: 'F2', code: 'F2', keyCode: 113, windowsVirtualKeyCode: 113 },
-  'F3': { key: 'F3', code: 'F3', keyCode: 114, windowsVirtualKeyCode: 114 },
-  'F4': { key: 'F4', code: 'F4', keyCode: 115, windowsVirtualKeyCode: 115 },
-  'F5': { key: 'F5', code: 'F5', keyCode: 116, windowsVirtualKeyCode: 116 },
-  'F6': { key: 'F6', code: 'F6', keyCode: 117, windowsVirtualKeyCode: 117 },
-  'F7': { key: 'F7', code: 'F7', keyCode: 118, windowsVirtualKeyCode: 118 },
-  'F8': { key: 'F8', code: 'F8', keyCode: 119, windowsVirtualKeyCode: 119 },
-  'F9': { key: 'F9', code: 'F9', keyCode: 120, windowsVirtualKeyCode: 120 },
-  'F10': { key: 'F10', code: 'F10', keyCode: 121, windowsVirtualKeyCode: 121 },
-  'F11': { key: 'F11', code: 'F11', keyCode: 122, windowsVirtualKeyCode: 122 },
-  'F12': { key: 'F12', code: 'F12', keyCode: 123, windowsVirtualKeyCode: 123 },
-};
 
 async function keypressStr(cdp, sid, keyName) {
   if (!keyName) throw new Error('key name required (e.g. ArrowRight, Enter, F5)');
@@ -1149,11 +1101,6 @@ DAEMON IPC (for advanced use / scripting)
   type, keypress, loadall, evalraw, stop. Use evalraw to send arbitrary CDP methods.
   The socket disappears after 120 min of inactivity or when the tab closes.
 `;
-
-const NEEDS_TARGET = new Set([
-  'snap','snapshot','eval','shot','screenshot','html','nav','navigate',
-  'net','network','click','clickxy','type','keypress','loadall','evalraw',
-]);
 
 async function main() {
   const [cmd, ...args] = process.argv.slice(2);
