@@ -7,312 +7,20 @@
 // the CDP session open. Chrome's "Allow debugging" modal fires once per
 // daemon (= once per tab). Daemons auto-exit after 120min idle.
 
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs';
-import { spawn } from 'child_process';
-import net from 'net';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import {
-  TIMEOUT, NAVIGATION_TIMEOUT, IDLE_TIMEOUT,
-  DAEMON_CONNECT_RETRIES, DAEMON_CONNECT_DELAY,
-  IS_WINDOWS, RUNTIME_DIR, PAGES_CACHE,
+  PAGES_CACHE,
   NEEDS_TARGET,
 } from './lib/constants.mjs';
-import { sleep, sockPath, resolvePrefix } from './lib/utils.mjs';
+import { resolvePrefix } from './lib/utils.mjs';
 import { CDP, getWsUrl, getPages, formatPageList } from './lib/cdp-client.mjs';
-import { getCommandHandler } from './lib/command-registry.mjs';
+import { runDaemon, getOrStartTabDaemon, sendCommand, stopDaemons } from './lib/daemon.mjs';
+
+import './commands/eval.mjs';
 import './commands/page.mjs';
 import './commands/interact.mjs';
 import './commands/network.mjs';
 import './commands/list.mjs';
-
-// ---------------------------------------------------------------------------
-// Per-tab daemon
-// ---------------------------------------------------------------------------
-
-async function runDaemon(targetId) {
-  const sp = sockPath(targetId);
-
-  const cdp = new CDP();
-  try {
-    await cdp.connect(getWsUrl());
-  } catch (e) {
-    process.stderr.write(`Daemon: cannot connect to Chrome: ${e.message}\n`);
-    process.exit(1);
-  }
-
-  let sessionId;
-  try {
-    const res = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
-    sessionId = res.sessionId;
-  } catch (e) {
-    process.stderr.write(`Daemon: attach failed: ${e.message}\n`);
-    cdp.close();
-    process.exit(1);
-  }
-
-  // Enable Network domain for request monitoring
-  try {
-    await cdp.send('Network.enable', {}, sessionId);
-  } catch (e) {
-    process.stderr.write(`Daemon: Network.enable failed: ${e.message}\n`);
-  }
-
-  // Network request cache
-  const MAX_CACHED_REQUESTS = 500;
-  const SKIP_TYPES = new Set(['image', 'font', 'stylesheet', 'media', 'script', 'other']);
-  const cachedRequests = [];
-  const pendingRequests = new Map(); // requestId -> request data
-  const requestIdState = { next: 1 };
-
-  function addCachedRequest(req) {
-    if (cachedRequests.length >= MAX_CACHED_REQUESTS) {
-      cachedRequests.shift();
-    }
-    req.id = requestIdState.next++;
-    cachedRequests.push(req);
-    return req.id;
-  }
-
-  // Network event listeners
-  cdp.onEvent('Network.requestWillBeSent', (params) => {
-    const type = (params.type || 'other').toLowerCase();
-    if (SKIP_TYPES.has(type)) return;
-
-    pendingRequests.set(params.requestId, {
-      requestId: params.requestId,
-      url: params.request.url,
-      method: params.request.method,
-      type: type,
-      requestHeaders: params.request.headers || {},
-      requestBody: params.request.postData || null,
-    });
-  });
-
-  cdp.onEvent('Network.responseReceived', (params) => {
-    const pending = pendingRequests.get(params.requestId);
-    if (!pending) return;
-
-    pending.status = params.response.status;
-    pending.statusText = params.response.statusText;
-    pending.responseHeaders = params.response.headers || {};
-    pending.mimeType = params.response.mimeType || '';
-  });
-
-  cdp.onEvent('Network.loadingFinished', (params) => {
-    const pending = pendingRequests.get(params.requestId);
-    if (!pending) return;
-
-    pendingRequests.delete(params.requestId);
-    addCachedRequest(pending);
-  });
-
-  cdp.onEvent('Network.loadingFailed', (params) => {
-    const pending = pendingRequests.get(params.requestId);
-    if (!pending) return;
-
-    pendingRequests.delete(params.requestId);
-    pending.status = 0;
-    pending.statusText = params.errorText || 'Failed';
-    pending.errorText = params.errorText;
-    pending.blockedReason = params.blockedReason;
-    pending.canceled = params.canceled;
-    addCachedRequest(pending);
-  });
-
-  // Shutdown helpers
-  let alive = true;
-  function shutdown() {
-    if (!alive) return;
-    alive = false;
-    server.close();
-    if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
-    cdp.close();
-    process.exit(0);
-  }
-
-  // Exit if target goes away or Chrome disconnects
-  cdp.onEvent('Target.targetDestroyed', (params) => {
-    if (params.targetId === targetId) shutdown();
-  });
-  cdp.onEvent('Target.detachedFromTarget', (params) => {
-    if (params.sessionId === sessionId) shutdown();
-  });
-  cdp.onClose(() => shutdown());
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
-
-  // Idle timer
-  let idleTimer = setTimeout(shutdown, IDLE_TIMEOUT);
-  function resetIdle() {
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(shutdown, IDLE_TIMEOUT);
-  }
-
-  // Handle a command
-  async function handleCommand({ cmd, args }) {
-    resetIdle();
-    try {
-      if (cmd === 'stop') return { ok: true, result: '', stopAfter: true };
-      const handler = getCommandHandler(cmd);
-      if (handler) {
-        const result = await handler({ cdp, sessionId, cachedRequests, requestIdState, args, targetId });
-        return { ok: true, result: result ?? '' };
-      }
-      return { ok: false, error: `Unknown command: ${cmd}` };
-    } catch (e) {
-      return { ok: false, error: e.message };
-    }
-  }
-
-  // Unix socket server — NDJSON protocol
-  // Wire format: each message is one JSON object followed by \n (newline-delimited JSON).
-  // Request:  { "id": <number>, "cmd": "<command>", "args": ["arg1", "arg2", ...] }
-  // Response: { "id": <number>, "ok": <boolean>, "result": "<string>" }
-  //           or { "id": <number>, "ok": false, "error": "<message>" }
-  const server = net.createServer((conn) => {
-    let buf = '';
-    conn.on('data', (chunk) => {
-      buf += chunk.toString();
-      const lines = buf.split('\n');
-      buf = lines.pop(); // keep incomplete last line
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        let req;
-        try {
-          req = JSON.parse(line);
-        } catch {
-          conn.write(JSON.stringify({ ok: false, error: 'Invalid JSON request', id: null }) + '\n');
-          continue;
-        }
-        handleCommand(req).then((res) => {
-          const payload = JSON.stringify({ ...res, id: req.id }) + '\n';
-          if (res.stopAfter) conn.end(payload, shutdown);
-          else conn.write(payload);
-        });
-      }
-    });
-  });
-
-  server.on('error', (e) => {
-    process.stderr.write(`Daemon server listen failed: ${e.message}\n`);
-    process.exit(1);
-  });
-
-  if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
-  server.listen(sp);
-}
-
-// ---------------------------------------------------------------------------
-// CLI ↔ daemon communication
-// ---------------------------------------------------------------------------
-
-function connectToSocket(sp) {
-  return new Promise((resolve, reject) => {
-    const conn = net.connect(sp);
-    conn.on('connect', () => resolve(conn));
-    conn.on('error', reject);
-  });
-}
-
-async function getOrStartTabDaemon(targetId) {
-  const sp = sockPath(targetId);
-  // Try existing daemon
-  try { return await connectToSocket(sp); } catch {}
-
-  // Clean stale socket
-  if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
-
-  // Spawn daemon
-  const child = spawn(process.execPath, [process.argv[1], '_daemon', targetId], {
-    detached: true,
-    stdio: 'ignore',
-  });
-  child.unref();
-
-  // Wait for socket (includes time for user to click Allow)
-  for (let i = 0; i < DAEMON_CONNECT_RETRIES; i++) {
-    await sleep(DAEMON_CONNECT_DELAY);
-    try { return await connectToSocket(sp); } catch {}
-  }
-  throw new Error('Daemon failed to start — did you click Allow in Chrome?');
-}
-
-function sendCommand(conn, req) {
-  return new Promise((resolve, reject) => {
-    let buf = '';
-    let settled = false;
-
-    const cleanup = () => {
-      conn.off('data', onData);
-      conn.off('error', onError);
-      conn.off('end', onEnd);
-      conn.off('close', onClose);
-    };
-
-    const onData = (chunk) => {
-      buf += chunk.toString();
-      const idx = buf.indexOf('\n');
-      if (idx === -1) return;
-      settled = true;
-      cleanup();
-      resolve(JSON.parse(buf.slice(0, idx)));
-      conn.end();
-    };
-
-    const onError = (error) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(error);
-    };
-
-    const onEnd = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error('Connection closed before response'));
-    };
-
-    const onClose = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error('Connection closed before response'));
-    };
-
-    conn.on('data', onData);
-    conn.on('error', onError);
-    conn.on('end', onEnd);
-    conn.on('close', onClose);
-    req.id = 1;
-    conn.write(JSON.stringify(req) + '\n');
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Stop daemons
-// ---------------------------------------------------------------------------
-
-async function stopDaemons(targetPrefix) {
-  if (!existsSync(PAGES_CACHE)) return;
-  const pages = JSON.parse(readFileSync(PAGES_CACHE, 'utf8'));
-  const targets = targetPrefix
-    ? [resolvePrefix(targetPrefix, pages.map(p => p.targetId), 'target')]
-    : pages.map(p => p.targetId);
-
-  for (const targetId of targets) {
-    const sp = sockPath(targetId);
-    try {
-      const conn = await connectToSocket(sp);
-      await sendCommand(conn, { cmd: 'stop' });
-    } catch {
-      if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
 
 const USAGE = `cdp - lightweight Chrome DevTools Protocol CLI (no Puppeteer)
 
@@ -385,7 +93,6 @@ DAEMON IPC (for advanced use / scripting)
 async function main() {
   const [cmd, ...args] = process.argv.slice(2);
 
-  // Daemon mode (internal)
   if (cmd === '_daemon') { await runDaemon(args[0]); return; }
 
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
@@ -403,13 +110,11 @@ async function main() {
     return;
   }
 
-  // Open new tab
   if (cmd === 'open') {
     const url = args[0] || 'about:blank';
     const cdp = new CDP();
     await cdp.connect(getWsUrl());
     const { targetId } = await cdp.send('Target.createTarget', { url });
-    // Refresh cache; new tab may not appear in getTargets immediately, so add it manually
     const pages = await getPages(cdp);
     if (!pages.some(p => p.targetId === targetId)) {
       pages.push({ targetId, title: url, url });
@@ -421,13 +126,11 @@ async function main() {
     return;
   }
 
-  // Stop
   if (cmd === 'stop') {
     await stopDaemons(args[0]);
     return;
   }
 
-  // Page commands — need target prefix
   if (!NEEDS_TARGET.has(cmd)) {
     console.error(`Unknown command: ${cmd}\n`);
     console.log(USAGE);
@@ -440,7 +143,6 @@ async function main() {
     process.exit(1);
   }
 
-  // Resolve prefix → full targetId from pages cache
   if (!existsSync(PAGES_CACHE)) {
     console.error('No page list cached. Run "cdp list" first.');
     process.exit(1);
@@ -457,12 +159,10 @@ async function main() {
     if (!expr) { console.error('Error: expression required'); process.exit(1); }
     cmdArgs[0] = expr;
   } else if (cmd === 'type') {
-    // Join all remaining args as text (allows spaces)
     const text = cmdArgs.join(' ');
     if (!text) { console.error('Error: text required'); process.exit(1); }
     cmdArgs[0] = text;
   } else if (cmd === 'evalraw') {
-    // args: [method, ...jsonParts] — join json parts in case of spaces
     if (!cmdArgs[0]) { console.error('Error: CDP method required'); process.exit(1); }
     if (cmdArgs.length > 2) cmdArgs[1] = cmdArgs.slice(1).join(' ');
   }
@@ -477,10 +177,8 @@ async function main() {
   if (response.ok) {
     if (response.result) console.log(response.result);
   } else {
-    // Special handling for download-triggered navigation abort
     if (response.error && response.error.includes('file download may have been triggered')) {
       console.log(response.error);
-      // Exit with code 0 since the file was successfully downloaded
       process.exitCode = 0;
     } else {
       console.error('Error:', response.error);
