@@ -56,18 +56,18 @@ The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux,
 
 ## Plugin System
 
-Plugins extend chrome-cdp for specific use cases. Each plugin lives in its own subdirectory under `scripts/` and is managed as an independent repository.
+Plugins extend chrome-cdp for specific use cases. Each plugin lives in its own subdirectory under `scripts/plugins/` and is managed as an independent repository.
 
 ### View available plugins
 
 ```bash
-<skill_dir>/scripts/plugin.mjs --help          # list all plugins
-<skill_dir>/scripts/plugin.mjs <plugin-name>   # show plugin details
+<skill_dir>/scripts/plugins/plugin.mjs --help          # list all plugins
+<skill_dir>/scripts/plugins/plugin.mjs <plugin-name>   # show plugin details
 ```
 
 ### Usage workflow
 
-1. Check available plugins with `plugin.mjs --help`
+1. Check available plugins with `plugins/plugin.mjs --help`
 2. If a plugin fits your needs, use its scripts directly
 3. If no plugin covers your scenario, fall back to `cdp.mjs` for direct CDP access
 
@@ -79,7 +79,7 @@ Plugins extend chrome-cdp for specific use cases. Each plugin lives in its own s
 
 ### Create a plugin
 
-1. Create a folder under `<skill_dir>/scripts/` (e.g., `<skill_dir>/scripts/my-plugin/`)
+1. Create a folder under `<skill_dir>/scripts/plugins/` (e.g., `<skill_dir>/scripts/plugins/my-plugin/`)
 2. Add an `info.json` with required fields:
    ```json
    {
@@ -102,6 +102,6 @@ Plugins extend chrome-cdp for specific use cases. Each plugin lives in its own s
 
 ## How it works
 
-Connects directly to Chrome's remote debugging WebSocket — no Puppeteer, no intermediary. On first access to a tab, a lightweight background daemon is spawned that holds the session open. Chrome's "Allow debugging" modal appears once per tab; subsequent commands reuse the daemon silently. Daemons auto-exit after 20 minutes of inactivity.
+Connects directly to Chrome's remote debugging WebSocket — no Puppeteer, no intermediary. On first access to a tab, a lightweight background daemon is spawned that holds the session open. Chrome's "Allow debugging" modal appears once per tab; subsequent commands reuse the daemon silently. Daemons auto-exit after 120 minutes of inactivity.
 
 This approach is also why it handles 100+ open tabs reliably, where tools built on Puppeteer often time out during target enumeration.

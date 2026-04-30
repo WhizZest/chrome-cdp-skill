@@ -104,23 +104,23 @@ CSS px = screenshot image px / DPR
 
 ## Plugin System
 
-The chrome-cdp skill supports plugins for specific use cases. Plugins are located in `<skill_dir>/scripts/` subdirectories.
+The chrome-cdp skill supports plugins for specific use cases. Plugins are located in `<skill_dir>/scripts/plugins/` subdirectories.
 
 ### Viewing Available Plugins
 
 ```bash
-<skill_dir>/scripts/plugin.mjs --help          # List all available plugins
-<skill_dir>/scripts/plugin.mjs <plugin-name>   # Show plugin details
+<skill_dir>/scripts/plugins/plugin.mjs --help          # List all available plugins
+<skill_dir>/scripts/plugins/plugin.mjs <plugin-name>   # Show plugin details
 ```
 
 ### Plugin Creation Guidelines
 
 To create a new plugin:
 
-1. **Location**: Create a folder in `<skill_dir>/scripts/` directory (e.g., `<skill_dir>/scripts/my-plugin/`)
+1. **Location**: Create a folder in `<skill_dir>/scripts/plugins/` directory (e.g., `<skill_dir>/scripts/plugins/my-plugin/`)
 
 2. **Required Files**:
-   - `<skill_dir>/scripts/my-plugin/info.json`: Plugin metadata
+   - `<skill_dir>/scripts/plugins/my-plugin/info.json`: Plugin metadata
    - One or more script files (`.mjs`)
 
 3. **Script Requirements**:
@@ -165,20 +165,20 @@ To create a new plugin:
 
 1. **Check available plugins first**:
    ```bash
-   <skill_dir>/scripts/plugin.mjs --help
+   <skill_dir>/scripts/plugins/plugin.mjs --help
    ```
    See if any existing plugin meets your needs.
 
 2. **View plugin details**:
    ```bash
-   <skill_dir>/scripts/plugin.mjs <plugin-name>
+   <skill_dir>/scripts/plugins/plugin.mjs <plugin-name>
    ```
    Check available scripts and their usage.
 
 3. **Use plugin scripts**:
    ```bash
-   <skill_dir>/scripts/<plugin-name>/<script>.mjs --help
-   <skill_dir>/scripts/<plugin-name>/<script>.mjs <args>
+   <skill_dir>/scripts/plugins/<plugin-name>/<script>.mjs --help
+   <skill_dir>/scripts/plugins/<plugin-name>/<script>.mjs <args>
    ```
 
 4. **Fall back to cdp.mjs**:
@@ -188,12 +188,22 @@ To create a new plugin:
 
 ```
 <skill_dir>/scripts/
-├── cdp.mjs                 # Base CDP commands
-├── plugin.mjs              # Plugin manager
-├── weread/                 # WeRead plugin
-│   ├── info.json          # Plugin metadata
-│   └── extract-chapter.mjs # Chapter extraction script
-└── my-plugin/             # Your custom plugin
-    ├── info.json
-    └── my-script.mjs
+├── cdp.mjs                     # Base CDP commands
+├── lib/                        # Core modules
+│   ├── constants.mjs           # Shared constants
+│   ├── utils.mjs               # Utility functions
+│   ├── cdp-client.mjs          # CDP WebSocket client
+│   ├── command-registry.mjs    # Command registry
+│   └── daemon.mjs              # Per-tab daemon logic
+├── commands/                   # Built-in commands
+│   ├── eval.mjs                # eval / evalraw
+│   ├── page.mjs                # snap / shot / html / nav
+│   ├── interact.mjs            # click / type / keypress / loadall
+│   ├── network.mjs             # net
+│   └── list.mjs                # list / list_raw
+└── plugins/                    # Plugin directory
+    ├── plugin.mjs              # Plugin manager
+    └── weread/                 # WeRead plugin
+        ├── info.json           # Plugin metadata
+        └── extract-chapter.mjs # Chapter extraction script
 ```

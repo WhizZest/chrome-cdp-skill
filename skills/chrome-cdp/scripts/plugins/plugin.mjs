@@ -1,20 +1,21 @@
 #!/usr/bin/env node
 
-import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
+import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join, resolve, dirname, sep } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const pluginsDir = __dirname;
 
 function printHelp() {
     console.log(`
 插件管理工具
 
 用法:
-  node plugin.mjs --help          显示所有可用插件
-  node plugin.mjs --list          显示所有可用插件（同--help）
-  node plugin.mjs <plugin-name>   显示指定插件的详细信息
+  node plugins/plugin.mjs --help          显示所有可用插件
+  node plugins/plugin.mjs --list          显示所有可用插件（同--help）
+  node plugins/plugin.mjs <plugin-name>   显示指定插件的详细信息
 
 选项:
   --help          显示所有可用插件
@@ -22,7 +23,7 @@ function printHelp() {
   <plugin-name>   显示指定插件的详细信息
 
 说明:
-  扫描当前目录下的所有子文件夹，查找有效的info.json文件
+  扫描 plugins/ 目录下的所有子文件夹，查找有效的info.json文件
   显示插件名称、描述和相对路径
 `);
 }
@@ -51,15 +52,19 @@ function isValidInfoJson(infoPath) {
 }
 
 function listPlugins() {
-    const scriptsDir = __dirname;
-    const entries = readdirSync(scriptsDir, { withFileTypes: true });
+    if (!existsSync(pluginsDir)) {
+        console.log('未找到任何有效插件（plugins/ 目录不存在）');
+        return;
+    }
+
+    const entries = readdirSync(pluginsDir, { withFileTypes: true });
     
     const plugins = [];
     
     for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         
-        const pluginDir = join(scriptsDir, entry.name);
+        const pluginDir = join(pluginsDir, entry.name);
         const infoPath = join(pluginDir, 'info.json');
         
         if (!existsSync(infoPath)) continue;
@@ -76,7 +81,7 @@ function listPlugins() {
             plugins.push({
                 name: entry.name,
                 description: info.description,
-                relativePath: entry.name,
+                relativePath: `plugins/${entry.name}`,
                 features: info.features
             });
         } catch (error) {
@@ -90,12 +95,12 @@ function listPlugins() {
     }
     
     console.log('\n可用插件列表:\n');
-    console.log('相对路径'.padEnd(20) + '描述');
+    console.log('相对路径'.padEnd(28) + '描述');
     console.log('─'.repeat(80));
     
     for (const plugin of plugins) {
         console.log(
-            plugin.relativePath.padEnd(20) + 
+            plugin.relativePath.padEnd(28) + 
             plugin.description
         );
     }
@@ -109,10 +114,9 @@ function showPluginDetail(pluginName) {
         process.exit(1);
     }
 
-    const scriptsDir = __dirname;
-    const pluginDir = resolve(scriptsDir, pluginName);
+    const pluginDir = resolve(pluginsDir, pluginName);
     
-    if (!pluginDir.startsWith(scriptsDir + sep)) {
+    if (!pluginDir.startsWith(pluginsDir + sep)) {
         console.error(`错误: 无效的插件名称 "${pluginName}"`);
         process.exit(1);
     }
