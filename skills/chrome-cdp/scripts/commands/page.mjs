@@ -178,13 +178,16 @@ registerCommand('nav', async ({ cdp, sessionId, args, dbg }) => {
     if (dbg.isPaused()) { try { await dbg.resume(); } catch {} }
     await dbg.disable();
   }
-  const result = await navStr(cdp, sessionId, args[0]);
-  if (wasEnabled) {
-    await dbg.enable(cdp, sessionId);
-    if (savedBreakpoints.length > 0) await dbg.restoreBreakpoints(savedBreakpoints);
-    if (savedXhrBreakpoints.length > 0) await dbg.restoreXHRBreakpoints();
+  try {
+    const result = await navStr(cdp, sessionId, args[0]);
+    return result;
+  } finally {
+    if (wasEnabled) {
+      await dbg.enable(cdp, sessionId);
+      if (savedBreakpoints.length > 0) await dbg.restoreBreakpoints(savedBreakpoints);
+      if (savedXhrBreakpoints.length > 0) await dbg.restoreXHRBreakpoints();
+    }
   }
-  return result;
 });
 registerCommand('navigate', async ({ cdp, sessionId, args, dbg }) => {
   const wasEnabled = dbg && dbg.isEnabled();
@@ -194,11 +197,14 @@ registerCommand('navigate', async ({ cdp, sessionId, args, dbg }) => {
     if (dbg.isPaused()) { try { await dbg.resume(); } catch {} }
     await dbg.disable();
   }
-  const result = await navStr(cdp, sessionId, args[0]);
-  if (wasEnabled) {
-    await dbg.enable(cdp, sessionId);
-    if (savedBreakpoints.length > 0) await dbg.restoreBreakpoints(savedBreakpoints);
-    if (savedXhrBreakpoints.length > 0) await dbg.restoreXHRBreakpoints();
+  try {
+    const result = await navStr(cdp, sessionId, args[0]);
+    return result;
+  } finally {
+    if (wasEnabled) {
+      await dbg.enable(cdp, sessionId);
+      if (savedBreakpoints.length > 0) await dbg.restoreBreakpoints(savedBreakpoints);
+      if (savedXhrBreakpoints.length > 0) await dbg.restoreXHRBreakpoints();
+    }
   }
-  return result;
 });

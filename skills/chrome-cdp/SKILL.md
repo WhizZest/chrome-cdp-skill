@@ -89,7 +89,11 @@ Captures the **viewport only**. Scroll first with `eval` if you need content bel
 
 The `debug` command provides JavaScript debugging capabilities via Chrome's Debugger domain. The debugger is **lazy-enabled** — it activates only when you first use a `debug` command, avoiding unnecessary overhead and anti-debugging detection.
 
-**Anti-debugging handling**: When navigating with the debugger active, the system automatically disables it before navigation and re-enables after, bypassing `debugger;` anti-debugging statements. Breakpoints are preserved across navigation.
+**Anti-debugging handling**: Some websites use `debugger;` statements (often in recursive timers) to prevent DevTools inspection. The debugger handles this in two ways:
+1. **Auto-skip**: By default, `debugger;` pauses (reason=`other`, no breakpoint hit) are automatically resumed, so they don't block normal operation.
+2. **Navigation safeguard**: When navigating with the debugger active, it is temporarily disabled before navigation and re-enabled after. Breakpoints are saved and restored across navigation.
+
+**Limitation**: Because the debugger is disabled during navigation, breakpoints on page initialization code (scripts that run during page load) will not be hit. To catch initialization code, set breakpoints after navigation and then trigger the target action manually.
 
 ```bash
 # Script management

@@ -9,6 +9,8 @@ let sidRef = null;
 let offScriptParsed = null;
 let offPaused = null;
 let offResumed = null;
+let skipDebuggerStatements = true;
+let offAutoResume = null;
 
 async function enable(cdp, sessionId) {
   if (enabled && cdpRef === cdp && sidRef === sessionId) return;
@@ -78,6 +80,10 @@ async function enable(cdp, sessionId) {
       hitBreakpoints: params.hitBreakpoints,
       data: params.data,
     };
+    if (skipDebuggerStatements && params.reason === 'other'
+        && (!params.hitBreakpoints || params.hitBreakpoints.length === 0)) {
+      cdpRef.send('Debugger.resume', {}, sidRef).catch(() => {});
+    }
   });
 
   offResumed = cdp.onEvent('Debugger.resumed', (params, msg) => {
@@ -105,8 +111,6 @@ async function disable() {
 
   scripts.clear();
   urlToScripts.clear();
-  breakpoints.clear();
-  xhrBreakpoints.clear();
   pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
   enabled = false;
   cdpRef = null;
@@ -238,6 +242,7 @@ function getBreakpointById(id) { return breakpoints.get(id); }
 
 async function restoreBreakpoints(saved) {
   if (!cdpRef) return;
+  breakpoints.clear();
   for (const bp of saved) {
     try {
       const params = { lineNumber: bp.lineNumber, columnNumber: bp.columnNumber };
@@ -395,6 +400,41 @@ async function evaluateOnCallFrame(callFrameId, expression, options = {}) {
   };
 }
 
+function setSkipDebuggerStatements(skip) {
+  skipDebuggerStatements = skip;
+}
+
+let antiDebugScriptId = null;
+
+async function neutralizeDebuggerStatements(cdp, sessionId) {
+  if (antiDebugScriptId) return antiDebugScriptId;
+  const code = `
+(function() {
+  var _constructor = Function.prototype.constructor;
+  Function.prototype.constructor = function() {
+    if (arguments && arguments.length > 0 && typeof arguments[0] === 'string') {
+      if (arguments[0].indexOf('debugger') !== -1) {
+        arguments[0] = arguments[0].replace(/debugger/g, '');
+      }
+    }
+    return _constructor.apply(this, arguments);
+  };
+  Function.prototype.constructor.toString = function() { return 'function Function() { [native code] }'; };
+})();
+`;
+  const result = await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: code }, sessionId);
+  antiDebugScriptId = result.identifier;
+  return antiDebugScriptId;
+}
+
+async function removeNeutralizeDebuggerStatements(cdp, sessionId) {
+  if (!antiDebugScriptId) return;
+  try {
+    await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: antiDebugScriptId }, sessionId);
+  } catch {}
+  antiDebugScriptId = null;
+}
+
 export {
   enable, disable, isEnabled,
   getScripts, getScriptsByUrl, getScriptsByUrlPattern, getScriptById,
@@ -405,4 +445,6 @@ export {
   isPaused, getPausedState, resume, pause,
   stepOver, stepInto, stepOut,
   getScopeVariables, evaluateOnCallFrame,
+  setSkipDebuggerStatements,
+  neutralizeDebuggerStatements, removeNeutralizeDebuggerStatements,
 };
