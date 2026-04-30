@@ -170,5 +170,35 @@ registerCommand('snapshot', async ({ cdp, sessionId }) => snapshotStr(cdp, sessi
 registerCommand('shot', async ({ cdp, sessionId, args, targetId }) => shotStr(cdp, sessionId, args[0], targetId));
 registerCommand('screenshot', async ({ cdp, sessionId, args, targetId }) => shotStr(cdp, sessionId, args[0], targetId));
 registerCommand('html', async ({ cdp, sessionId, args }) => htmlStr(cdp, sessionId, args[0]));
-registerCommand('nav', async ({ cdp, sessionId, args }) => navStr(cdp, sessionId, args[0]));
-registerCommand('navigate', async ({ cdp, sessionId, args }) => navStr(cdp, sessionId, args[0]));
+registerCommand('nav', async ({ cdp, sessionId, args, dbg }) => {
+  const wasEnabled = dbg && dbg.isEnabled();
+  const savedBreakpoints = wasEnabled ? dbg.getBreakpoints() : [];
+  const savedXhrBreakpoints = wasEnabled ? dbg.getXHRBreakpoints() : [];
+  if (wasEnabled) {
+    if (dbg.isPaused()) { try { await dbg.resume(); } catch {} }
+    await dbg.disable();
+  }
+  const result = await navStr(cdp, sessionId, args[0]);
+  if (wasEnabled) {
+    await dbg.enable(cdp, sessionId);
+    if (savedBreakpoints.length > 0) await dbg.restoreBreakpoints(savedBreakpoints);
+    if (savedXhrBreakpoints.length > 0) await dbg.restoreXHRBreakpoints();
+  }
+  return result;
+});
+registerCommand('navigate', async ({ cdp, sessionId, args, dbg }) => {
+  const wasEnabled = dbg && dbg.isEnabled();
+  const savedBreakpoints = wasEnabled ? dbg.getBreakpoints() : [];
+  const savedXhrBreakpoints = wasEnabled ? dbg.getXHRBreakpoints() : [];
+  if (wasEnabled) {
+    if (dbg.isPaused()) { try { await dbg.resume(); } catch {} }
+    await dbg.disable();
+  }
+  const result = await navStr(cdp, sessionId, args[0]);
+  if (wasEnabled) {
+    await dbg.enable(cdp, sessionId);
+    if (savedBreakpoints.length > 0) await dbg.restoreBreakpoints(savedBreakpoints);
+    if (savedXhrBreakpoints.length > 0) await dbg.restoreXHRBreakpoints();
+  }
+  return result;
+});
