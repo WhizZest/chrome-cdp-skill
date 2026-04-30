@@ -1,3 +1,2 @@
 package-lock.json
 skills/chrome-cdp/scripts/plugins/*/
-!skills/chrome-cdp/scripts/plugins/plugin.mjs

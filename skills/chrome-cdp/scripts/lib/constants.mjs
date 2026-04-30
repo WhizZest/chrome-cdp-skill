@@ -1,4 +1,3 @@
-import { mkdirSync } from 'fs';
 import { homedir } from 'os';
 import { resolve } from 'path';
 
@@ -10,15 +9,11 @@ export const DAEMON_CONNECT_DELAY = 300;
 export const MIN_TARGET_PREFIX_LEN = 8;
 export const IS_WINDOWS = process.platform === 'win32';
 
-if (!IS_WINDOWS) process.umask(0o077);
-
 export const RUNTIME_DIR = IS_WINDOWS
   ? resolve(process.env.LOCALAPPDATA || resolve(homedir(), 'AppData', 'Local'), 'cdp')
   : process.env.XDG_RUNTIME_DIR
     ? resolve(process.env.XDG_RUNTIME_DIR, 'cdp')
     : resolve(homedir(), '.cache', 'cdp');
-
-try { mkdirSync(RUNTIME_DIR, { recursive: true, mode: 0o700 }); } catch {}
 
 export const PAGES_CACHE = resolve(RUNTIME_DIR, 'pages.json');
 

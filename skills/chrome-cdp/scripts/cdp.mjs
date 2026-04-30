@@ -7,14 +7,19 @@
 // the CDP session open. Chrome's "Allow debugging" modal fires once per
 // daemon (= once per tab). Daemons auto-exit after 120min idle.
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import {
   PAGES_CACHE,
   NEEDS_TARGET,
+  RUNTIME_DIR,
+  IS_WINDOWS,
 } from './lib/constants.mjs';
 import { resolvePrefix } from './lib/utils.mjs';
 import { CDP, getWsUrl, getPages, formatPageList } from './lib/cdp-client.mjs';
 import { runDaemon, getOrStartTabDaemon, sendCommand, stopDaemons } from './lib/daemon.mjs';
+
+if (!IS_WINDOWS) process.umask(0o077);
+try { mkdirSync(RUNTIME_DIR, { recursive: true, mode: 0o700 }); } catch {}
 
 import './commands/eval.mjs';
 import './commands/page.mjs';
