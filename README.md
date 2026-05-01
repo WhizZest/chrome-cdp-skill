@@ -17,7 +17,7 @@ Most browser automation tools launch a fresh, isolated browser. This one connect
 ### As a pi skill
 
 ```bash
-pi install git:github.com/pasky/chrome-cdp-skill@v1.0.1
+npx skills add  WhizZest/chrome-cdp-skill
 ```
 
 ### For other agents (Amp, Claude Code, Cursor, etc.)
@@ -53,6 +53,78 @@ The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux,
 ```
 
 `<target>` is a unique prefix of the targetId shown by `list`.
+
+### Debugger (JavaScript debugging)
+
+The `debug` command provides full JavaScript debugging via Chrome's Debugger domain. The debugger is **lazy-enabled** — it activates only on first use, avoiding unnecessary overhead and anti-debugging detection.
+
+```bash
+# Script management
+<skill_dir>/scripts/cdp.mjs debug <target> scripts [filter]   # list loaded JS scripts
+<skill_dir>/scripts/cdp.mjs debug <target> source <id|url>    # view script source
+<skill_dir>/scripts/cdp.mjs debug <target> search <query>     # search in scripts
+
+# Breakpoints
+<skill_dir>/scripts/cdp.mjs debug <target> break <url> <line> [col]  # set breakpoint (--cond for conditional)
+<skill_dir>/scripts/cdp.mjs debug <target> breaktext <text>          # breakpoint on code text
+<skill_dir>/scripts/cdp.mjs debug <target> breakxhr <pattern>        # XHR/Fetch breakpoint
+<skill_dir>/scripts/cdp.mjs debug <target> breaks                    # list all breakpoints
+<skill_dir>/scripts/cdp.mjs debug <target> unbreak <id|all>          # remove breakpoint(s)
+<skill_dir>/scripts/cdp.mjs debug <target> unbreakxhr <pattern>      # remove XHR breakpoint
+
+# Execution control
+<skill_dir>/scripts/cdp.mjs debug <target> pause              # pause JS execution
+<skill_dir>/scripts/cdp.mjs debug <target> resume             # resume execution
+<skill_dir>/scripts/cdp.mjs debug <target> stepover           # step over
+<skill_dir>/scripts/cdp.mjs debug <target> stepinto           # step into
+<skill_dir>/scripts/cdp.mjs debug <target> stepout            # step out
+
+# State inspection
+<skill_dir>/scripts/cdp.mjs debug <target> status             # show paused state (call stack, scope)
+<skill_dir>/scripts/cdp.mjs debug <target> vars [frame-idx]   # show scope variables
+<skill_dir>/scripts/cdp.mjs debug <target> eval <expr> [idx]  # evaluate in paused frame
+
+# Advanced
+<skill_dir>/scripts/cdp.mjs debug <target> reset              # reset debugger state (no restart needed)
+<skill_dir>/scripts/cdp.mjs debug <target> neutralize         # strip debugger; from new pages
+<skill_dir>/scripts/cdp.mjs debug <target> neutralize-remove  # remove neutralization
+<skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls
+<skill_dir>/scripts/cdp.mjs debug <target> inject <code>      # inject script before page load
+```
+
+**Anti-debugging**: Some websites use `debugger;` statements to block DevTools. The debugger handles this in multiple ways:
+1. **Auto-skip**: `debugger;` pauses are automatically resumed by default
+2. **Neutralize**: `debug <target> neutralize` strips `debugger;` from dynamically created functions — more effective for heavy anti-debugging (e.g., WeChat Reading)
+3. **Reset**: `debug <target> reset` recovers from inconsistent state (after `Debugger.disable`, lost breakpoints, etc.) — **no daemon restart or Chrome "Allow" click needed**
+
+**Navigation**: URL breakpoints survive across navigations (CDP feature). Code and XHR breakpoints are restored after navigation. Navigation waits for `DOMContentLoaded` rather than full `load`, which is more tolerant of `debugger;` anti-debugging.
+
+### Daemon info
+
+```bash
+<skill_dir>/scripts/cdp.mjs info <target>                    # daemon metadata (targetId, sessionId, pid, uptime)
+```
+
+### evalraw safety
+
+`evalraw` passes CDP commands directly to Chrome, with built-in safety guards:
+
+- **Blocked**: `Target.detachFromTarget` on the daemon's own session (would kill the daemon)
+- **Warned**: `Debugger.disable`, `Network.disable`, `Page.disable`, `Target.closeTarget`, etc. (may desynchronize daemon state — use `debug reset` to recover)
+- **Allowed**: All other CDP methods work normally
+
+## Testing
+
+```bash
+# Run all unit tests (no Chrome needed)
+node tests/run-unit.mjs
+
+# Run a single test file
+node tests/unit/debugger-context.test.mjs
+
+# Integration tests (requires Chrome + target)
+CDP_TEST_TARGET=<id> node tests/integration/daemon-lifecycle.mjs
+```
 
 ## Plugin System
 
@@ -105,3 +177,5 @@ Plugins extend chrome-cdp for specific use cases. Each plugin lives in its own s
 Connects directly to Chrome's remote debugging WebSocket — no Puppeteer, no intermediary. On first access to a tab, a lightweight background daemon is spawned that holds the session open. Chrome's "Allow debugging" modal appears once per tab; subsequent commands reuse the daemon silently. Daemons auto-exit after 120 minutes of inactivity.
 
 This approach is also why it handles 100+ open tabs reliably, where tools built on Puppeteer often time out during target enumeration.
+
+**Restarting the daemon is the last resort.** Every restart requires manually clicking "Allow" in Chrome — disruptive and cannot be automated. Before restarting, try `debug <target> reset` (recovers debugger state) or simply re-run the command (transient errors often resolve on retry).
