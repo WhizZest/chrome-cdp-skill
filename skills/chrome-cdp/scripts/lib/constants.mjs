@@ -57,5 +57,8 @@ export const KEY_MAP = {
 export const NEEDS_TARGET = new Set([
   'snap','snapshot','eval','shot','screenshot','html','nav','navigate',
   'net','network','click','clickxy','type','keypress','loadall','evalraw','debug',
+  'console',
+  'ws','websocket',
+  'intercept',
   'info',
 ]);

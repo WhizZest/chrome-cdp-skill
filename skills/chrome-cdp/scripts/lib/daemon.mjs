@@ -10,6 +10,9 @@ import { sleep, sockPath, resolvePrefix } from './utils.mjs';
 import { CDP, getWsUrl } from './cdp-client.mjs';
 import { getCommandHandler } from './command-registry.mjs';
 import * as dbg from './debugger-context.mjs';
+import * as consoleCtx from './console-context.mjs';
+import * as wsCtx from './websocket-context.mjs';
+import * as interceptCtx from './intercept-context.mjs';
 
 async function runDaemon(targetId) {
   const sp = sockPath(targetId);
@@ -38,6 +41,18 @@ async function runDaemon(targetId) {
     process.stderr.write(`Daemon: Network.enable failed: ${e.message}\n`);
   }
 
+  try {
+    await consoleCtx.enable(cdp, sessionId);
+  } catch (e) {
+    process.stderr.write(`Daemon: Console.enable failed: ${e.message}\n`);
+  }
+
+  try {
+    await wsCtx.enable(cdp, sessionId);
+  } catch (e) {
+    process.stderr.write(`Daemon: WebSocket.enable failed: ${e.message}\n`);
+  }
+
   const MAX_CACHED_REQUESTS = 500;
   const SKIP_TYPES = new Set(['image', 'font', 'stylesheet', 'media', 'script', 'other']);
   const cachedRequests = [];
@@ -57,6 +72,13 @@ async function runDaemon(targetId) {
     const type = (params.type || 'other').toLowerCase();
     if (SKIP_TYPES.has(type)) return;
 
+    const initiator = params.initiator ? {
+      type: params.initiator.type || 'other',
+      url: params.initiator.url || '',
+      lineNumber: params.initiator.lineNumber ?? -1,
+      stack: params.initiator.stack || null,
+    } : null;
+
     pendingRequests.set(params.requestId, {
       requestId: params.requestId,
       url: params.request.url,
@@ -64,6 +86,7 @@ async function runDaemon(targetId) {
       type: type,
       requestHeaders: params.request.headers || {},
       requestBody: params.request.postData || null,
+      initiator,
     });
   });
 
@@ -102,6 +125,9 @@ async function runDaemon(targetId) {
   function shutdown() {
     if (!alive) return;
     alive = false;
+    consoleCtx.disable();
+    wsCtx.disable();
+    interceptCtx.reset();
     server.close();
     if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
     cdp.close();

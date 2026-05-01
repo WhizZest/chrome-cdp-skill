@@ -73,6 +73,7 @@ Captures the **viewport only**. Scroll first with `eval` if you need content bel
 <skill_dir>/scripts/cdp.mjs net <target> <id> --request-body # request body only
 <skill_dir>/scripts/cdp.mjs net <target> <id> --headers     # request + response headers
 <skill_dir>/scripts/cdp.mjs net <target> <id> --raw         # show raw values (no redaction)
+<skill_dir>/scripts/cdp.mjs net <target> <id> --initiator   # show request initiator (call stack)
 <skill_dir>/scripts/cdp.mjs net <target> xhr                # filter by type: XHR/Fetch
 <skill_dir>/scripts/cdp.mjs net <target> error              # filter: status >= 400
 <skill_dir>/scripts/cdp.mjs net <target> <keyword>          # filter by URL keyword
@@ -84,6 +85,56 @@ Captures the **viewport only**. Scroll first with `eval` if you need content bel
 **Security**: By default, sensitive headers (authorization, cookie, set-cookie, etc.) are redacted as `[REDACTED]`. Use `--raw` to see original values.
 
 **Cache limit**: 500 requests (FIFO eviction).
+
+### Console messages
+
+```bash
+<skill_dir>/scripts/cdp.mjs console <target>                # list console messages
+<skill_dir>/scripts/cdp.mjs console <target> <id>           # view message details
+<skill_dir>/scripts/cdp.mjs console <target> error          # filter by type: error
+<skill_dir>/scripts/cdp.mjs console <target> warn           # filter by type: warning
+<skill_dir>/scripts/cdp.mjs console <target> --page <n>     # pagination (default page 1)
+<skill_dir>/scripts/cdp.mjs console <target> --size <n>     # page size (default 20)
+<skill_dir>/scripts/cdp.mjs console <target> clear          # clear console cache
+```
+
+Captures `Runtime.consoleAPICalled` and `Runtime.exceptionThrown` events. Messages include type, text, source URL, and line number. FIFO cache with 1000 message limit.
+
+### WebSocket messages
+
+```bash
+<skill_dir>/scripts/cdp.mjs ws <target>                     # list WebSocket connections
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid>              # view connection messages
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --analyze    # pattern analysis (group by prefix/size)
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --group A    # view all frames in pattern group
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --frame <n>  # frame detail with full payload
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --sent       # only sent frames
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --received   # only received frames
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --content    # show full payload (truncated by default)
+<skill_dir>/scripts/cdp.mjs ws <target> clear               # clear WebSocket cache
+```
+
+Tracks WebSocket connections via `Network.webSocket*` events. Pattern analysis groups frames by direction + payload prefix + size class (labeled A, B, C...), useful for reverse engineering WebSocket protocols. Up to 100 connections, 500 frames per connection.
+
+### Network interception
+
+```bash
+<skill_dir>/scripts/cdp.mjs intercept <target> on [--request] [--response]  # enable interception
+<skill_dir>/scripts/cdp.mjs intercept <target> off                           # disable interception
+<skill_dir>/scripts/cdp.mjs intercept <target> modify-header <pattern> <header> <value>  # inject header
+<skill_dir>/scripts/cdp.mjs intercept <target> mock <pattern> [status] [body]  # mock response
+<skill_dir>/scripts/cdp.mjs intercept <target> block <pattern>               # block requests
+<skill_dir>/scripts/cdp.mjs intercept <target> list                          # list rules
+<skill_dir>/scripts/cdp.mjs intercept <target> remove <id>                   # remove rule
+<skill_dir>/scripts/cdp.mjs intercept <target> stats                         # show statistics
+```
+
+Uses Chrome's **Fetch Domain** to intercept and modify network requests. Three actions:
+- **modify-header**: Inject a custom header into matching requests
+- **mock**: Serve a mock response (default 200 with CORS headers)
+- **block**: Block requests with `BlockedByClient` error
+
+URL patterns support exact match, substring match, and glob (`*` wildcard). Unmatched requests pass through automatically.
 
 ### Debugger (JavaScript debugging)
 
@@ -258,12 +309,18 @@ To create a new plugin:
 │   ├── cdp-client.mjs          # CDP WebSocket client
 │   ├── command-registry.mjs    # Command registry
 │   ├── daemon.mjs              # Per-tab daemon logic
-│   └── debugger-context.mjs    # Debugger domain state management
+│   ├── debugger-context.mjs    # Debugger domain state management
+│   ├── console-context.mjs     # Console message state management
+│   ├── websocket-context.mjs   # WebSocket connection state management
+│   └── intercept-context.mjs   # Network interception state management
 ├── commands/                   # Built-in commands
 │   ├── eval.mjs                # eval / evalraw
 │   ├── page.mjs                # snap / shot / html / nav
 │   ├── interact.mjs            # click / type / keypress / loadall
-│   ├── network.mjs             # net
+│   ├── network.mjs             # net (with initiator tracking)
+│   ├── console.mjs             # console message monitoring
+│   ├── ws.mjs                  # ws / websocket
+│   ├── intercept.mjs           # network interception
 │   ├── debug.mjs               # debug (scripts, breakpoints, stepping, etc.)
 │   └── list.mjs                # list / list_raw
 └── plugins/                    # Plugin directory

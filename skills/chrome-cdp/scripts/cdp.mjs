@@ -27,6 +27,9 @@ import './commands/interact.mjs';
 import './commands/network.mjs';
 import './commands/list.mjs';
 import './commands/debug.mjs';
+import './commands/console.mjs';
+import './commands/ws.mjs';
+import './commands/intercept.mjs';
 
 const USAGE = `cdp - lightweight Chrome DevTools Protocol CLI (no Puppeteer)
 
@@ -49,6 +52,28 @@ Usage: cdp <command> [args]
   net   <target> error              Filter: status >= 400 or failed
   net   <target> <keyword>          Filter by URL keyword
   net   <target> clear              Clear request cache
+  net   <target> initiator <id>     View request initiator (call stack)
+  console <target>                  List recent console messages
+  console <target> error            Filter by type: log/error/warn/info/debug/table
+  console <target> <id>             View message details
+  console <target> clear            Clear console cache
+  ws     <target>                    List WebSocket connections
+  ws     <target> <wsid>             View connection messages
+  ws     <target> <wsid> --analyze   Pattern analysis
+  ws     <target> <wsid> --group A   View pattern group
+  ws     <target> <wsid> --frame <n> Frame detail
+  ws     <target> <wsid> --sent      Only sent frames
+  ws     <target> <wsid> --received  Only received frames
+  ws     <target> <wsid> --content   Show full payload
+  ws     <target> clear              Clear WebSocket cache
+  intercept <target> on [--request] [--response]  Enable interception
+  intercept <target> off              Disable interception
+  intercept <target> modify-header <pattern> <header> <value>
+  intercept <target> mock <pattern> [status] [body]
+  intercept <target> block <pattern>
+  intercept <target> list             List rules
+  intercept <target> remove <id>      Remove rule
+  intercept <target> stats            Show statistics
   click   <target> <selector>       Click an element by CSS selector
   clickxy <target> <x> <y>          Click at CSS pixel coordinates (see coordinate note below)
   type    <target> <text>           Type text at current focus via Input.insertText
