@@ -348,6 +348,21 @@ async function handleResume(dbg, cdp, sessionId) {
   return 'Execution resumed.';
 }
 
+async function handleReset(dbg, cdp, sessionId) {
+  return await dbg.reset(cdp, sessionId);
+}
+
+async function handleNeutralize(dbg, cdp, sessionId) {
+  await ensureEnabled(dbg, cdp, sessionId);
+  const id = await dbg.neutralizeDebuggerStatements(cdp, sessionId);
+  return `Anti-debugger neutralization injected (id: ${id}). New pages will have debugger; statements stripped.`;
+}
+
+async function handleNeutralizeRemove(dbg, cdp, sessionId) {
+  await dbg.removeNeutralizeDebuggerStatements(cdp, sessionId);
+  return 'Anti-debugger neutralization removed.';
+}
+
 async function handleStep(dbg, cdp, sessionId, direction) {
   await ensureEnabled(dbg, cdp, sessionId);
   if (!dbg.isPaused()) throw new Error('Execution is not paused. Cannot step.');
@@ -609,6 +624,9 @@ async function handleDebug({ cdp, sessionId, args, dbg }) {
     case 'unbreakxhr': return handleUnbreakXhr(dbg, cdp, sessionId, subArgs);
     case 'pause': return handlePause(dbg, cdp, sessionId);
     case 'resume': return handleResume(dbg, cdp, sessionId);
+    case 'reset': return handleReset(dbg, cdp, sessionId);
+    case 'neutralize': return handleNeutralize(dbg, cdp, sessionId);
+    case 'neutralize-remove': return handleNeutralizeRemove(dbg, cdp, sessionId);
     case 'stepover': return handleStep(dbg, cdp, sessionId, 'over');
     case 'stepinto': return handleStep(dbg, cdp, sessionId, 'into');
     case 'stepout': return handleStep(dbg, cdp, sessionId, 'out');
@@ -633,6 +651,9 @@ async function handleDebug({ cdp, sessionId, args, dbg }) {
         '  unbreakxhr <url-pattern>      Remove XHR breakpoint',
         '  pause                         Pause execution',
         '  resume                        Resume execution',
+        '  reset                         Reset debugger state (re-enable, restore breakpoints)',
+        '  neutralize                    Strip debugger; statements from new pages',
+        '  neutralize-remove             Remove debugger; neutralization',
         '  stepover                      Step over',
         '  stepinto                      Step into',
         '  stepout                       Step out',

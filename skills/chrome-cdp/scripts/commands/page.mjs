@@ -179,7 +179,7 @@ async function navStr(cdp, sid, url, dbg) {
   }
 
   if (dbg && dbg.isEnabled()) {
-    await dbg.restoreXHRBreakpoints();
+    await dbg.restoreBreakpoints();
   }
 
   await waitForDocumentReady(cdp, sid, 5000);
