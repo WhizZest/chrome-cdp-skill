@@ -212,8 +212,8 @@ async function handleBreak(dbg, cdp, sessionId, args) {
   await ensureEnabled(dbg, cdp, sessionId);
   const { flags, positional } = parseFlags(args);
   const url = positional[0];
-  const line = parseInt(positional[1]);
-  const col = positional[2] ? parseInt(positional[2]) : 0;
+  const line = parseInt(positional[1]) - 1;
+  const col = positional[2] ? parseInt(positional[2]) - 1 : 0;
   const condition = flags.cond || flags.condition || null;
 
   if (!url || isNaN(line)) throw new Error('Usage: debug break <url> <line> [col] [--cond expr]');
@@ -222,7 +222,7 @@ async function handleBreak(dbg, cdp, sessionId, args) {
   const lines = ['Breakpoint set:'];
   lines.push(`  ID: ${info.breakpointId}`);
   lines.push(`  URL: ${info.url}`);
-  lines.push(`  Line: ${info.lineNumber + 1}, Column: ${info.columnNumber}`);
+  lines.push(`  Line: ${info.lineNumber + 1}, Column: ${info.columnNumber + 1}`);
   if (info.condition) lines.push(`  Condition: ${info.condition}`);
   return lines.join('\n');
 }
@@ -266,7 +266,7 @@ async function handleBreakText(dbg, cdp, sessionId, args) {
   const out = ['Breakpoint set:'];
   out.push(`  ID: ${info.breakpointId}`);
   out.push(`  URL: ${url}`);
-  out.push(`  Line: ${match.lineNumber + 1}, Column: ${columnNumber}`);
+  out.push(`  Line: ${match.lineNumber + 1}, Column: ${columnNumber + 1}`);
   if (condition) out.push(`  Condition: ${condition}`);
   return out.join('\n');
 }
@@ -291,7 +291,7 @@ async function handleBreaks(dbg, cdp, sessionId) {
     for (const bp of bps) {
       lines.push(`  - ID: ${bp.breakpointId}`);
       lines.push(`    URL: ${bp.url}`);
-      lines.push(`    Line: ${bp.lineNumber + 1}, Column: ${bp.columnNumber}`);
+      lines.push(`    Line: ${bp.lineNumber + 1}, Column: ${bp.columnNumber + 1}`);
       if (bp.condition) lines.push(`    Condition: ${bp.condition}`);
     }
   }
@@ -548,9 +548,9 @@ async function handleTrace(dbg, cdp, sessionId, args) {
     const colPos = lines[match.lineNumber].indexOf(foundMatch.pattern);
     if (colPos >= 0) {
       const afterPattern = lines[match.lineNumber].substring(colPos + foundMatch.pattern.length);
-      const braceMatch = afterPattern.match(/[({]/);
+      const braceMatch = afterPattern.match(/\{/);
       if (braceMatch && braceMatch.index !== undefined) {
-        columnNumber = colPos + foundMatch.pattern.length + braceMatch.index + 1;
+        columnNumber = colPos + foundMatch.pattern.length + braceMatch.index;
       } else {
         columnNumber = colPos;
       }

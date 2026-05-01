@@ -11,15 +11,24 @@ let offPaused = null;
 let offResumed = null;
 let skipDebuggerStatements = true;
 let userPaused = false;
-let offAutoResume = null;
+let stepping = false;
 
 async function enable(cdp, sessionId) {
   if (enabled && cdpRef === cdp && sidRef === sessionId) return;
+
+  if (offScriptParsed) { offScriptParsed(); offScriptParsed = null; }
+  if (offPaused) { offPaused(); offPaused = null; }
+  if (offResumed) { offResumed(); offResumed = null; }
 
   cdpRef = cdp;
   sidRef = sessionId;
   scripts.clear();
   urlToScripts.clear();
+  breakpoints.clear();
+  xhrBreakpoints.clear();
+  pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
+  userPaused = false;
+  stepping = false;
 
   offScriptParsed = cdp.onEvent('Debugger.scriptParsed', (params, msg) => {
     if (msg.sessionId && msg.sessionId !== sessionId) return;
@@ -81,7 +90,7 @@ async function enable(cdp, sessionId) {
       hitBreakpoints: params.hitBreakpoints,
       data: params.data,
     };
-    if (skipDebuggerStatements && !userPaused && params.reason === 'other'
+    if (skipDebuggerStatements && !userPaused && !stepping && params.reason === 'other'
         && (!params.hitBreakpoints || params.hitBreakpoints.length === 0)) {
       cdpRef.send('Debugger.resume', {}, sidRef).catch(() => {});
     }
@@ -113,8 +122,11 @@ async function disable() {
 
   scripts.clear();
   urlToScripts.clear();
+  breakpoints.clear();
+  xhrBreakpoints.clear();
   pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
   userPaused = false;
+  stepping = false;
   enabled = false;
   cdpRef = null;
   sidRef = null;
@@ -243,33 +255,6 @@ function getBreakpoints() { return Array.from(breakpoints.values()); }
 
 function getBreakpointById(id) { return breakpoints.get(id); }
 
-async function restoreBreakpoints(saved) {
-  if (!cdpRef) return;
-  breakpoints.clear();
-  for (const bp of saved) {
-    try {
-      const params = { lineNumber: bp.lineNumber, columnNumber: bp.columnNumber };
-      if (bp.isRegex) params.urlRegex = bp.url;
-      else params.url = bp.url;
-      if (bp.condition) params.condition = bp.condition;
-      const result = await cdpRef.send('Debugger.setBreakpointByUrl', params, sidRef);
-      breakpoints.set(result.breakpointId, {
-        breakpointId: result.breakpointId,
-        url: bp.url,
-        lineNumber: bp.lineNumber,
-        columnNumber: bp.columnNumber,
-        condition: bp.condition,
-        isRegex: bp.isRegex,
-        locations: (result.locations || []).map(loc => ({
-          scriptId: loc.scriptId,
-          lineNumber: loc.lineNumber,
-          columnNumber: loc.columnNumber ?? 0,
-        })),
-      });
-    } catch {}
-  }
-}
-
 async function setXHRBreakpoint(url) {
   if (!cdpRef) throw new Error('Debugger not enabled');
   await cdpRef.send('DOMDebugger.setXHRBreakpoint', { url }, sidRef);
@@ -339,25 +324,28 @@ function waitForPaused(timeoutMs = 10000) {
 async function stepOver() {
   if (!cdpRef) throw new Error('Debugger not enabled');
   if (!pausedState.isPaused) throw new Error('Execution is not paused');
+  stepping = true;
   const p = waitForPaused();
   await cdpRef.send('Debugger.stepOver', {}, sidRef);
-  return p;
+  try { const r = await p; stepping = false; return r; } catch (e) { stepping = false; throw e; }
 }
 
 async function stepInto() {
   if (!cdpRef) throw new Error('Debugger not enabled');
   if (!pausedState.isPaused) throw new Error('Execution is not paused');
+  stepping = true;
   const p = waitForPaused();
   await cdpRef.send('Debugger.stepInto', {}, sidRef);
-  return p;
+  try { const r = await p; stepping = false; return r; } catch (e) { stepping = false; throw e; }
 }
 
 async function stepOut() {
   if (!cdpRef) throw new Error('Debugger not enabled');
   if (!pausedState.isPaused) throw new Error('Execution is not paused');
+  stepping = true;
   const p = waitForPaused();
   await cdpRef.send('Debugger.stepOut', {}, sidRef);
-  return p;
+  try { const r = await p; stepping = false; return r; } catch (e) { stepping = false; throw e; }
 }
 
 async function getScopeVariables(objectId) {
@@ -444,7 +432,7 @@ export {
   getScripts, getScriptsByUrl, getScriptsByUrlPattern, getScriptById,
   getScriptSource, getScriptSourceByUrl, searchInScripts, clearScripts,
   setBreakpoint, setBreakpointByUrlRegex, removeBreakpoint, removeAllBreakpoints,
-  getBreakpoints, getBreakpointById, restoreBreakpoints,
+  getBreakpoints, getBreakpointById,
   setXHRBreakpoint, removeXHRBreakpoint, getXHRBreakpoints, restoreXHRBreakpoints,
   isPaused, getPausedState, resume, pause,
   stepOver, stepInto, stepOut,

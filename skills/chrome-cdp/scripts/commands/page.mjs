@@ -152,6 +152,10 @@ async function navStr(cdp, sid, url, dbg) {
     try { await dbg.resume(); } catch {}
   }
 
+  if (dbg && dbg.isEnabled()) {
+    dbg.clearScripts();
+  }
+
   const loadEvent = cdp.waitForEvent('Page.domContentEventFired', NAVIGATION_TIMEOUT);
   const result = await cdp.send('Page.navigate', { url }, sid);
   if (result.errorText) {
@@ -175,7 +179,6 @@ async function navStr(cdp, sid, url, dbg) {
   }
 
   if (dbg && dbg.isEnabled()) {
-    dbg.clearScripts();
     await dbg.restoreXHRBreakpoints();
   }
 
