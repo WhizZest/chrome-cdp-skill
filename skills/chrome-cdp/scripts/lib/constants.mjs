@@ -60,5 +60,6 @@ export const NEEDS_TARGET = new Set([
   'console',
   'ws','websocket',
   'intercept',
+  'frames',
   'info',
 ]);

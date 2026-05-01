@@ -2,11 +2,15 @@ import { writeFileSync } from 'fs';
 import { registerCommand } from '../lib/command-registry.mjs';
 import { WARN_CDP_METHODS, WARN_HINTS } from '../lib/eval-safety.mjs';
 
-export async function evalStr(cdp, sid, expression) {
+export async function evalStr(cdp, sid, expression, contextId = null) {
   await cdp.send('Runtime.enable', {}, sid);
-  const result = await cdp.send('Runtime.evaluate', {
+  const params = {
     expression, returnByValue: true, awaitPromise: true,
-  }, sid);
+  };
+  if (contextId) {
+    params.contextId = contextId;
+  }
+  const result = await cdp.send('Runtime.evaluate', params, sid);
   if (result.exceptionDetails) {
     throw new Error(result.exceptionDetails.text || result.exceptionDetails.exception?.description);
   }
@@ -53,12 +57,13 @@ async function evalRawStr(cdp, sid, method, paramsJson) {
   return `⚠ Warning: ${method} may desynchronize daemon state. ${WARN_HINTS[method] || 'Use "debug reset" to recover if needed.'}\n\n${output}`;
 }
 
-registerCommand('eval', async ({ cdp, sessionId, args }) => {
+registerCommand('eval', async ({ cdp, sessionId, args, frameCtx }) => {
   const { expression, saveFile, binary } = parseEvalArgs(args);
   if (!expression) throw new Error('Usage: eval <target> <expr> [--save <file>] [--binary]');
 
+  const contextId = frameCtx?.getExecutionContextId() || null;
   const actualExpr = binary ? wrapBinaryExpr(expression) : expression;
-  const result = await evalStr(cdp, sessionId, actualExpr);
+  const result = await evalStr(cdp, sessionId, actualExpr, contextId);
 
   if (saveFile) {
     let content;

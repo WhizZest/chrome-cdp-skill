@@ -2,20 +2,26 @@ import { registerCommand } from '../lib/command-registry.mjs';
 import * as consoleCtx from '../lib/console-context.mjs';
 
 function formatMessageList(result) {
-  const { messages, total, page, size, totalPages } = result;
+  const { messages, total, page, size, totalPages, preserve } = result;
   if (total === 0) return 'No console messages.';
 
   const start = (page - 1) * size + 1;
   const end = Math.min(page * size, total);
 
   const lines = [`Console messages (${total} total, showing ${start}-${end}):`];
-  for (const msg of messages) {
-    const type = msg.type.padEnd(7);
-    const text = msg.text.length > 80 ? msg.text.substring(0, 77) + '...' : msg.text;
-    const source = msg.url
-      ? `  ${msg.url.split('/').pop()}:${msg.lineNumber >= 0 ? msg.lineNumber + 1 : '?'}`
+
+  for (const item of messages) {
+    if (item.separator) {
+      const timeStr = item.timestamp ? ` (${new Date(item.timestamp).toLocaleTimeString()})` : ' (current)';
+      lines.push(`--- Navigation: ${item.url || '(unknown)'}${timeStr} ---`);
+      continue;
+    }
+    const type = item.type.padEnd(7);
+    const text = item.text.length > 80 ? item.text.substring(0, 77) + '...' : item.text;
+    const source = item.url
+      ? `  ${item.url.split('/').pop()}:${item.lineNumber >= 0 ? item.lineNumber + 1 : '?'}`
       : '';
-    lines.push(`  [${msg.id}]  ${type} ${text}${source}`);
+    lines.push(`  [${item.id}]  ${type} ${text}${source}`);
   }
 
   if (totalPages > 1) {
@@ -73,11 +79,12 @@ async function handleConsole({ cdp, sessionId, args }) {
 
   const pageIdx = args.indexOf('--page');
   const sizeIdx = args.indexOf('--size');
+  const preserve = args.includes('--preserve');
   const page = pageIdx >= 0 ? parseInt(args[pageIdx + 1]) || 1 : 1;
   const size = sizeIdx >= 0 ? parseInt(args[sizeIdx + 1]) || 20 : 20;
 
   const typeFilter = (filter && !filter.startsWith('--')) ? filter : null;
-  const result = consoleCtx.getMessages(typeFilter, page, size);
+  const result = consoleCtx.getMessages(typeFilter, page, size, preserve);
   return formatMessageList(result);
 }
 

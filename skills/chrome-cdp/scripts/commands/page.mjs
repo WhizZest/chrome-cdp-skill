@@ -71,7 +71,12 @@ async function snapshotStr(cdp, sid, compact = false) {
   return lines.join('\n');
 }
 
-async function shotStr(cdp, sid, filePath, targetId) {
+const MAX_FULLPAGE_HEIGHT = 16384;
+
+export async function shotStr(cdp, sid, filePath, targetId, args = []) {
+  const isFullPage = args.includes('--full');
+  const resolvedPath = filePath && !filePath.startsWith('--') ? filePath : null;
+
   let dpr = 1;
   try {
     const metrics = await cdp.send('Page.getLayoutMetrics', {}, sid);
@@ -91,12 +96,52 @@ async function shotStr(cdp, sid, filePath, targetId) {
     } catch {}
   }
 
-  const { data } = await cdp.send('Page.captureScreenshot', { format: 'png' }, sid);
-  const out = filePath || resolve(RUNTIME_DIR, `screenshot-${(targetId || 'unknown').slice(0, 8)}.png`);
+  let originalMetrics = null;
+
+  if (isFullPage) {
+    try {
+      originalMetrics = await cdp.send('Emulation.getDeviceMetricsOverride', {}, sid);
+    } catch {}
+
+    const metrics = await cdp.send('Page.getLayoutMetrics', {}, sid);
+    const contentSize = metrics.cssContentSize || metrics.contentSize;
+    if (!contentSize) throw new Error('Cannot determine page size for full-page screenshot');
+
+    let width = Math.ceil(contentSize.width);
+    let height = Math.ceil(contentSize.height);
+    if (height > MAX_FULLPAGE_HEIGHT) {
+      height = MAX_FULLPAGE_HEIGHT;
+    }
+
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height,
+      deviceScaleFactor: dpr,
+      mobile: false,
+    }, sid);
+
+    await sleep(500);
+  }
+
+  let data;
+  try {
+    ({ data } = await cdp.send('Page.captureScreenshot', { format: 'png' }, sid));
+  } finally {
+    if (isFullPage) {
+      if (originalMetrics) {
+        try { await cdp.send('Emulation.setDeviceMetricsOverride', originalMetrics, sid); } catch {}
+      } else {
+        try { await cdp.send('Emulation.clearDeviceMetricsOverride', {}, sid); } catch {}
+      }
+    }
+  }
+
+  const suffix = isFullPage ? '-full' : '';
+  const out = resolvedPath || resolve(RUNTIME_DIR, `screenshot-${(targetId || 'unknown').slice(0, 8)}${suffix}.png`);
   writeFileSync(out, Buffer.from(data, 'base64'));
 
   const lines = [out];
-  lines.push(`Screenshot saved. Device pixel ratio (DPR): ${dpr}`);
+  lines.push(`Screenshot saved.${isFullPage ? ' (full page)' : ''} Device pixel ratio (DPR): ${dpr}`);
   lines.push(`Coordinate mapping:`);
   lines.push(`  Screenshot pixels → CSS pixels (for CDP Input events): divide by ${dpr}`);
   lines.push(`  e.g. screenshot point (${Math.round(100 * dpr)}, ${Math.round(200 * dpr)}) → CSS (100, 200) → use clickxy <target> 100 200`);
@@ -188,8 +233,8 @@ async function navStr(cdp, sid, url, dbg) {
 
 registerCommand('snap', async ({ cdp, sessionId }) => snapshotStr(cdp, sessionId, true));
 registerCommand('snapshot', async ({ cdp, sessionId }) => snapshotStr(cdp, sessionId, true));
-registerCommand('shot', async ({ cdp, sessionId, args, targetId }) => shotStr(cdp, sessionId, args[0], targetId));
-registerCommand('screenshot', async ({ cdp, sessionId, args, targetId }) => shotStr(cdp, sessionId, args[0], targetId));
+registerCommand('shot', async ({ cdp, sessionId, args, targetId }) => shotStr(cdp, sessionId, args[0], targetId, args));
+registerCommand('screenshot', async ({ cdp, sessionId, args, targetId }) => shotStr(cdp, sessionId, args[0], targetId, args));
 registerCommand('html', async ({ cdp, sessionId, args }) => htmlStr(cdp, sessionId, args[0]));
 registerCommand('nav', async ({ cdp, sessionId, args, dbg }) => {
   return navStr(cdp, sessionId, args[0], dbg);

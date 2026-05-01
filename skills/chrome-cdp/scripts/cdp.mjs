@@ -30,6 +30,7 @@ import './commands/debug.mjs';
 import './commands/console.mjs';
 import './commands/ws.mjs';
 import './commands/intercept.mjs';
+import './commands/frames.mjs';
 
 const USAGE = `cdp - lightweight Chrome DevTools Protocol CLI (no Puppeteer)
 
@@ -39,6 +40,7 @@ Usage: cdp <command> [args]
   snap  <target>                    Accessibility tree snapshot
   eval  <target> <expr>             Evaluate JS expression [--save <file>] [--binary]
   shot  <target> [file]             Screenshot (default: screenshot-<target>.png in runtime dir); prints coordinate mapping
+                                    --full for full-page screenshot
   html  <target> [selector]         Get HTML (full page or CSS selector)
   nav   <target> <url>              Navigate to URL and wait for load completion
   net   <target>                    List cached HTTP requests (captured via CDP Network domain)
@@ -57,6 +59,7 @@ Usage: cdp <command> [args]
   console <target> error            Filter by type: log/error/warn/info/debug/table
   console <target> <id>             View message details
   console <target> clear            Clear console cache
+  console <target> --preserve       Show messages across navigations
   ws     <target>                    List WebSocket connections
   ws     <target> <wsid>             View connection messages
   ws     <target> <wsid> --analyze   Pattern analysis
@@ -107,9 +110,12 @@ Usage: cdp <command> [args]
   debug <target> status             Show paused state (call stack, scope vars)
   debug <target> vars [frame-idx]   Show scope variables
   debug <target> eval <expr> [idx]  Evaluate in paused frame
-  debug <target> trace <func>       Trace function calls (--filter url, --pause)
+  debug <target> trace <func>       Trace function calls (--filter url, --pause, --log-this, --trace-id <id>)
   debug <target> inject <code>      Inject script before every page load
   debug <target> inject-remove <id> Remove injected script
+  frames <target>                   List page frames (main + iframes)
+  frames <target> select <idx>      Select frame for eval
+  frames <target> reset             Reset to main frame
   open  [url]                       Open a new tab (default: about:blank)
                                     Note: each new tab triggers a fresh "Allow debugging?" prompt
   stop  [target]                    Stop daemon(s)

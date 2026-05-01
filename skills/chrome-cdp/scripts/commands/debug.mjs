@@ -14,7 +14,7 @@ function parseFlags(args) {
     'startLine', 'endLine', 'offset', 'length', 'max',
     'filter', 'cond', 'condition', 'nth', 'frame',
     'regex', 'case', 'no-exclude-minified', 'no-scopes', 'pause',
-    'expr', 'e',
+    'expr', 'e', 'log-this', 'trace-id',
   ]);
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -535,7 +535,7 @@ async function handleTrace(dbg, cdp, sessionId, args) {
   await ensureEnabled(dbg, cdp, sessionId);
   const { flags, positional } = parseFlags(args);
   const funcName = positional[0];
-  if (!funcName) throw new Error('Usage: debug trace <func-name> [--filter url] [--pause]');
+  if (!funcName) throw new Error('Usage: debug trace <func-name> [--filter url] [--pause] [--log-this] [--trace-id <id>]');
 
   const patterns = [
     `function ${funcName}`,
@@ -589,16 +589,28 @@ async function handleTrace(dbg, cdp, sessionId, args) {
   }
 
   const shouldPause = !!flags.pause;
-  const logExpr = `console.log('[Trace ${funcName}] called', JSON.stringify(Array.from(arguments)).slice(0,500))`;
+  const logThis = !!flags['log-this'];
+  const traceId = flags['trace-id'] || funcName;
+
+  const traceLabel = `[Trace ${traceId}] called`;
+  const logParts = [];
+  logParts.push(JSON.stringify(traceLabel));
+  logParts.push(`JSON.stringify(Array.from(arguments)).slice(0,500)`);
+  if (logThis) {
+    logParts.push(`(function(){try{return JSON.stringify(this,(k,v)=>typeof v==='function'?'[Function]':v).slice(0,500)}catch(e){return'[serialize error: '+e.message+']'}}).call(this)`);
+  }
+  const logExpr = `console.log(${logParts.join(', ')})`;
   const condition = shouldPause ? logExpr : `(${logExpr}, false)`;
 
   const info = await dbg.setBreakpoint(url, match.lineNumber, columnNumber, condition);
 
   const out = ['Function trace installed:'];
   out.push(`  Function: ${funcName}`);
+  out.push(`  Trace ID: ${traceId}`);
   out.push(`  Breakpoint ID: ${info.breakpointId}`);
   out.push(`  Location: ${url}:${match.lineNumber + 1}:${columnNumber}`);
   out.push(`  Mode: ${shouldPause ? 'Pause on call' : 'Log only (no pause)'}`);
+  out.push(`  Log this: ${logThis ? 'Yes' : 'No'}`);
   out.push(`\nCalls will be logged to console. Use debug unbreak ${info.breakpointId} to stop tracing.`);
   return out.join('\n');
 }

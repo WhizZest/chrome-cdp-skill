@@ -1,4 +1,5 @@
 const MAX_WS_CONNECTIONS = 100;
+const MAX_CLOSED_CONNECTIONS = 50;
 const MAX_FRAMES_PER_CONNECTION = 500;
 
 const connectionsByReqId = new Map();
@@ -105,6 +106,14 @@ async function enable(cdp, sessionId) {
     if (!conn) return;
     conn.status = 'closed';
     conn.closedTime = params.timestamp || Date.now();
+
+    const closedConns = Array.from(connectionsByReqId.values())
+      .filter(c => c.status === 'closed')
+      .sort((a, b) => (a.closedTime || 0) - (b.closedTime || 0));
+    while (closedConns.length > MAX_CLOSED_CONNECTIONS) {
+      const oldest = closedConns.shift();
+      connectionsByReqId.delete(oldest.requestId);
+    }
   });
 
   enabled = true;

@@ -13,6 +13,7 @@ import * as dbg from './debugger-context.mjs';
 import * as consoleCtx from './console-context.mjs';
 import * as wsCtx from './websocket-context.mjs';
 import * as interceptCtx from './intercept-context.mjs';
+import * as frameCtx from './frame-context.mjs';
 
 async function runDaemon(targetId) {
   const sp = sockPath(targetId);
@@ -51,6 +52,13 @@ async function runDaemon(targetId) {
     await wsCtx.enable(cdp, sessionId);
   } catch (e) {
     process.stderr.write(`Daemon: WebSocket.enable failed: ${e.message}\n`);
+  }
+
+  try {
+    await cdp.send('Page.enable', {}, sessionId);
+    await frameCtx.enable(cdp, sessionId);
+  } catch (e) {
+    process.stderr.write(`Daemon: Frame.enable failed: ${e.message}\n`);
   }
 
   const MAX_CACHED_REQUESTS = 500;
@@ -128,6 +136,7 @@ async function runDaemon(targetId) {
     consoleCtx.disable();
     wsCtx.disable();
     interceptCtx.reset();
+    frameCtx.disable();
     server.close();
     if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
     cdp.close();
@@ -139,6 +148,11 @@ async function runDaemon(targetId) {
   });
   cdp.onEvent('Target.detachedFromTarget', (params) => {
     if (params.sessionId === sessionId) shutdown();
+  });
+  cdp.onEvent('Page.frameNavigated', (params) => {
+    if (params.frame && !params.frame.parentId) {
+      consoleCtx.onNavigated(params.frame.url);
+    }
   });
   cdp.onClose(() => shutdown());
   process.on('SIGTERM', shutdown);
@@ -165,7 +179,7 @@ async function runDaemon(targetId) {
       if (cmd === 'info') return { ok: true, result: JSON.stringify({ targetId, sessionId, pid: process.pid, uptime: Math.round(process.uptime()) }) };
       const handler = getCommandHandler(cmd);
       if (handler) {
-        const result = await handler({ cdp, sessionId, cachedRequests, requestIdState, args, targetId, dbg });
+        const result = await handler({ cdp, sessionId, cachedRequests, requestIdState, args, targetId, dbg, frameCtx });
         return { ok: true, result: result ?? '' };
       }
       return { ok: false, error: `Unknown command: ${cmd}` };
