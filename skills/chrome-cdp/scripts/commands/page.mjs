@@ -137,7 +137,7 @@ async function waitForDocumentReady(cdp, sid, timeoutMs = NAVIGATION_TIMEOUT) {
   throw new Error('Timed out waiting for navigation to finish');
 }
 
-async function navStr(cdp, sid, url) {
+async function navStr(cdp, sid, url, dbg) {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
@@ -147,7 +147,12 @@ async function navStr(cdp, sid, url) {
     throw new Error(`Invalid URL: ${url}`);
   }
   await cdp.send('Page.enable', {}, sid);
-  const loadEvent = cdp.waitForEvent('Page.loadEventFired', NAVIGATION_TIMEOUT);
+
+  if (dbg && dbg.isEnabled() && dbg.isPaused()) {
+    try { await dbg.resume(); } catch {}
+  }
+
+  const loadEvent = cdp.waitForEvent('Page.domContentEventFired', NAVIGATION_TIMEOUT);
   const result = await cdp.send('Page.navigate', { url }, sid);
   if (result.errorText) {
     loadEvent.cancel();
@@ -157,10 +162,23 @@ async function navStr(cdp, sid, url) {
     throw new Error(result.errorText);
   }
   if (result.loaderId) {
-    await loadEvent.promise;
+    try {
+      await loadEvent.promise;
+    } catch (navErr) {
+      if (dbg && dbg.isEnabled() && dbg.isPaused()) {
+        return `Navigated to ${url} (paused at breakpoint - use "debug status" to inspect, "debug resume" to continue)`;
+      }
+      throw navErr;
+    }
   } else {
     loadEvent.cancel();
   }
+
+  if (dbg && dbg.isEnabled()) {
+    dbg.clearScripts();
+    await dbg.restoreXHRBreakpoints();
+  }
+
   await waitForDocumentReady(cdp, sid, 5000);
   return `Navigated to ${url}`;
 }
@@ -171,40 +189,8 @@ registerCommand('shot', async ({ cdp, sessionId, args, targetId }) => shotStr(cd
 registerCommand('screenshot', async ({ cdp, sessionId, args, targetId }) => shotStr(cdp, sessionId, args[0], targetId));
 registerCommand('html', async ({ cdp, sessionId, args }) => htmlStr(cdp, sessionId, args[0]));
 registerCommand('nav', async ({ cdp, sessionId, args, dbg }) => {
-  const wasEnabled = dbg && dbg.isEnabled();
-  const savedBreakpoints = wasEnabled ? dbg.getBreakpoints() : [];
-  const savedXhrBreakpoints = wasEnabled ? dbg.getXHRBreakpoints() : [];
-  if (wasEnabled) {
-    if (dbg.isPaused()) { try { await dbg.resume(); } catch {} }
-    await dbg.disable();
-  }
-  try {
-    const result = await navStr(cdp, sessionId, args[0]);
-    return result;
-  } finally {
-    if (wasEnabled) {
-      await dbg.enable(cdp, sessionId);
-      if (savedBreakpoints.length > 0) await dbg.restoreBreakpoints(savedBreakpoints);
-      if (savedXhrBreakpoints.length > 0) await dbg.restoreXHRBreakpoints();
-    }
-  }
+  return navStr(cdp, sessionId, args[0], dbg);
 });
 registerCommand('navigate', async ({ cdp, sessionId, args, dbg }) => {
-  const wasEnabled = dbg && dbg.isEnabled();
-  const savedBreakpoints = wasEnabled ? dbg.getBreakpoints() : [];
-  const savedXhrBreakpoints = wasEnabled ? dbg.getXHRBreakpoints() : [];
-  if (wasEnabled) {
-    if (dbg.isPaused()) { try { await dbg.resume(); } catch {} }
-    await dbg.disable();
-  }
-  try {
-    const result = await navStr(cdp, sessionId, args[0]);
-    return result;
-  } finally {
-    if (wasEnabled) {
-      await dbg.enable(cdp, sessionId);
-      if (savedBreakpoints.length > 0) await dbg.restoreBreakpoints(savedBreakpoints);
-      if (savedXhrBreakpoints.length > 0) await dbg.restoreXHRBreakpoints();
-    }
-  }
+  return navStr(cdp, sessionId, args[0], dbg);
 });

@@ -89,11 +89,12 @@ Captures the **viewport only**. Scroll first with `eval` if you need content bel
 
 The `debug` command provides JavaScript debugging capabilities via Chrome's Debugger domain. The debugger is **lazy-enabled** — it activates only when you first use a `debug` command, avoiding unnecessary overhead and anti-debugging detection.
 
-**Anti-debugging handling**: Some websites use `debugger;` statements (often in recursive timers) to prevent DevTools inspection. The debugger handles this in two ways:
+**Anti-debugging handling**: Some websites use `debugger;` statements (often in recursive timers) to prevent DevTools inspection. The debugger handles this in multiple ways:
 1. **Auto-skip**: By default, `debugger;` pauses (reason=`other`, no breakpoint hit) are automatically resumed, so they don't block normal operation.
-2. **Navigation safeguard**: When navigating with the debugger active, it is temporarily disabled before navigation and re-enabled after. Breakpoints are saved and restored across navigation.
+2. **Navigation with debugger active**: The debugger stays enabled during navigation — URL breakpoints (`Debugger.setBreakpointByUrl`) automatically survive across navigations (this is a CDP feature). Only XHR breakpoints (`DOMDebugger`) are restored after navigation since Chrome resets them.
+3. **Neutralize**: Optionally use `inject` to override `Function.prototype.constructor` to strip `debugger;` from dynamically created functions.
 
-**Limitation**: Because the debugger is disabled during navigation, breakpoints on page initialization code (scripts that run during page load) will not be hit. To catch initialization code, set breakpoints after navigation and then trigger the target action manually.
+**Navigation behavior**: Navigation waits for `DOMContentLoaded` (not full `load`), which is more tolerant of `debugger;` anti-debugging. If a breakpoint is hit during page load, navigation returns a message indicating the pause — use `debug status` to inspect and `debug resume` to continue loading.
 
 ```bash
 # Script management
