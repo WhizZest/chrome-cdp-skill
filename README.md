@@ -37,6 +37,7 @@ The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux,
 ```bash
 <skill_dir>/scripts/cdp.mjs list                              # list open tabs
 <skill_dir>/scripts/cdp.mjs shot   <target>                   # screenshot → runtime dir
+<skill_dir>/scripts/cdp.mjs shot   <target> --full            # full-page screenshot (entire scrollable content)
 <skill_dir>/scripts/cdp.mjs snap   <target>                   # accessibility tree (compact, semantic)
 <skill_dir>/scripts/cdp.mjs html   <target> [".selector"]     # full HTML or scoped to CSS selector
 <skill_dir>/scripts/cdp.mjs eval   <target> "expression"      # evaluate JS [--save file] [--binary]
@@ -45,6 +46,9 @@ The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux,
 <skill_dir>/scripts/cdp.mjs console <target>                  # list console messages
 <skill_dir>/scripts/cdp.mjs ws     <target>                   # list WebSocket connections
 <skill_dir>/scripts/cdp.mjs intercept <target> on             # enable network interception
+<skill_dir>/scripts/cdp.mjs frames  <target>                  # list all frames (main + iframes)
+<skill_dir>/scripts/cdp.mjs frames  <target> select <index>   # select frame for eval context
+<skill_dir>/scripts/cdp.mjs frames  <target> reset            # reset to main frame
 <skill_dir>/scripts/cdp.mjs click  <target> "selector"        # click element by CSS selector
 <skill_dir>/scripts/cdp.mjs clickxy <target> <x> <y>          # click at CSS pixel coordinates
 <skill_dir>/scripts/cdp.mjs type   <target> "text"            # type at focused element (works in cross-origin iframes)
@@ -91,7 +95,7 @@ The `debug` command provides full JavaScript debugging via Chrome's Debugger dom
 <skill_dir>/scripts/cdp.mjs debug <target> reset              # reset debugger state (no restart needed)
 <skill_dir>/scripts/cdp.mjs debug <target> neutralize         # strip debugger; from new pages
 <skill_dir>/scripts/cdp.mjs debug <target> neutralize-remove  # remove neutralization
-<skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls
+<skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls (--log-this, --trace-id <id>)
 <skill_dir>/scripts/cdp.mjs debug <target> logpoint <url> <line> [col] --expr <expr>  # logpoint (no pause)
 <skill_dir>/scripts/cdp.mjs debug <target> inject <code>      # inject script before page load
 <skill_dir>/scripts/cdp.mjs debug <target> inject-remove <id> # remove injected script
@@ -111,10 +115,11 @@ The `debug` command provides full JavaScript debugging via Chrome's Debugger dom
 <skill_dir>/scripts/cdp.mjs console <target>                # list console messages
 <skill_dir>/scripts/cdp.mjs console <target> <id>           # view message details
 <skill_dir>/scripts/cdp.mjs console <target> error          # filter by type
+<skill_dir>/scripts/cdp.mjs console <target> --preserve     # include messages from previous navigations
 <skill_dir>/scripts/cdp.mjs console <target> clear          # clear cache
 ```
 
-Captures `console.log/warn/error` and uncaught exceptions with source URL and line number.
+Captures `console.log/warn/error` and uncaught exceptions with source URL and line number. Use `--preserve` to include messages from up to 3 previous navigations after page transitions.
 
 ### WebSocket analysis
 
@@ -142,6 +147,16 @@ Pattern analysis groups frames by direction + payload prefix + size class (A, B,
 ```
 
 Uses Chrome's Fetch Domain to intercept and modify requests. URL patterns support exact, substring, and glob (`*`) matching.
+
+### Frame management (iframes)
+
+```bash
+<skill_dir>/scripts/cdp.mjs frames <target>                 # list all frames (main + iframes)
+<skill_dir>/scripts/cdp.mjs frames <target> select <index>   # select frame by index for eval
+<skill_dir>/scripts/cdp.mjs frames <target> reset            # reset to main frame
+```
+
+Lists all frames including nested iframes with frame ID, URL, and nesting depth. After `select`, `eval` commands execute in that frame's JavaScript context. Uses CDP's `ExecutionContext` to target the selected frame.
 
 ### Daemon info
 

@@ -31,9 +31,10 @@ Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no
 
 ```bash
 <skill_dir>/scripts/cdp.mjs shot <target> [file]    # default: screenshot-<target>.png in runtime dir
+<skill_dir>/scripts/cdp.mjs shot <target> --full     # full-page screenshot (captures entire scrollable content)
 ```
 
-Captures the **viewport only**. Scroll first with `eval` if you need content below the fold. Output includes the page's DPR and coordinate conversion hint (see **Coordinates** below).
+Captures the **viewport only** by default. Use `--full` to capture the entire page including content below the fold. Full-page screenshots temporarily resize the viewport, capture, then restore it. Very tall pages are capped at 16384px height. Scroll first with `eval` if you need content below the fold. Output includes the page's DPR and coordinate conversion hint (see **Coordinates** below).
 
 ### Accessibility tree snapshot
 
@@ -98,10 +99,13 @@ Captures the **viewport only**. Scroll first with `eval` if you need content bel
 <skill_dir>/scripts/cdp.mjs console <target> warn           # filter by type: warning
 <skill_dir>/scripts/cdp.mjs console <target> --page <n>     # pagination (default page 1)
 <skill_dir>/scripts/cdp.mjs console <target> --size <n>     # page size (default 20)
+<skill_dir>/scripts/cdp.mjs console <target> --preserve     # include messages from previous navigations
 <skill_dir>/scripts/cdp.mjs console <target> clear          # clear console cache
 ```
 
 Captures `Runtime.consoleAPICalled` and `Runtime.exceptionThrown` events. Messages include type, text, source URL, and line number. FIFO cache with 1000 message limit.
+
+**Cross-navigation preservation**: By default, console messages are cleared on each navigation. Use `--preserve` to include messages from up to 3 previous navigations, grouped by URL with separators.
 
 ### WebSocket messages
 
@@ -138,6 +142,18 @@ Uses Chrome's **Fetch Domain** to intercept and modify network requests. Three a
 - **block**: Block requests with `BlockedByClient` error
 
 URL patterns support exact match, substring match, and glob (`*` wildcard). Unmatched requests pass through automatically.
+
+### Frame management (iframes)
+
+```bash
+<skill_dir>/scripts/cdp.mjs frames <target>                 # list all frames (main + iframes)
+<skill_dir>/scripts/cdp.mjs frames <target> select <index>   # select frame by index (from list output)
+<skill_dir>/scripts/cdp.mjs frames <target> reset            # reset to main frame
+```
+
+Lists all frames in the page including nested iframes, showing frame ID, URL, and nesting depth. After selecting a frame with `select`, subsequent `eval` commands execute in that frame's JavaScript context. Use `reset` to return to the main frame.
+
+**How it works**: Uses CDP's `ExecutionContext` to target the selected frame. This allows reading/modifying variables inside iframes, including cross-origin ones (if the debugger is already attached).
 
 ### Debugger (JavaScript debugging)
 
@@ -180,7 +196,7 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 <skill_dir>/scripts/cdp.mjs debug <target> eval <expr> [idx]  # evaluate expression in paused frame
 
 # Advanced
-<skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls (--filter url, --pause)
+<skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls (--filter url, --pause, --log-this, --trace-id <id>)
 <skill_dir>/scripts/cdp.mjs debug <target> logpoint <url> <line> [col] --expr <expression>  # set logpoint (no pause, logs to console)
 <skill_dir>/scripts/cdp.mjs debug <target> neutralize         # strip debugger; statements from new pages
 <skill_dir>/scripts/cdp.mjs debug <target> neutralize-remove  # remove debugger; neutralization
@@ -196,6 +212,10 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 **Reset tips**: `reset` is useful when the debugger state becomes inconsistent (e.g., after `evalraw Debugger.disable`). It disables and re-enables the debugger, then restores all breakpoints. No daemon restart or Chrome "Allow" click needed.
 
 **Neutralize tips**: Use `neutralize` **before** navigating to pages with `debugger;` anti-debugging. It injects a script that strips `debugger;` from dynamically created functions. For sites with heavy anti-debugging (e.g., WeChat Reading), `neutralize` is more effective than auto-skip alone.
+
+**Trace tips**: `trace` sets a conditional breakpoint that logs function calls without pausing (use `--pause` to pause on call). Enhanced options:
+- `--log-this`: Also log the `this` context when the function is called (serialized, functions shown as `[Function]`)
+- `--trace-id <id>`: Custom identifier in the log output (default: function name). Useful when tracing multiple functions to distinguish calls
 
 ## Coordinates
 
@@ -317,7 +337,8 @@ To create a new plugin:
 │   ├── debugger-context.mjs    # Debugger domain state management
 │   ├── console-context.mjs     # Console message state management
 │   ├── websocket-context.mjs   # WebSocket connection state management
-│   └── intercept-context.mjs   # Network interception state management
+│   ├── intercept-context.mjs   # Network interception state management
+│   ├── frame-context.mjs       # iframe/Frame tree + ExecutionContext management
 ├── commands/                   # Built-in commands
 │   ├── eval.mjs                # eval / evalraw
 │   ├── page.mjs                # snap / shot / html / nav
@@ -327,6 +348,7 @@ To create a new plugin:
 │   ├── ws.mjs                  # ws / websocket
 │   ├── intercept.mjs           # network interception
 │   ├── debug.mjs               # debug (scripts, breakpoints, stepping, etc.)
+│   ├── frames.mjs              # frames (list, select, reset for iframe management)
 │   └── list.mjs                # list / list_raw
 └── plugins/                    # Plugin directory
     ├── plugin.mjs              # Plugin manager
