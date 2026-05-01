@@ -73,7 +73,7 @@ async function snapshotStr(cdp, sid, compact = false) {
 
 const MAX_FULLPAGE_HEIGHT = 16384;
 
-async function shotStr(cdp, sid, filePath, targetId, args = []) {
+export async function shotStr(cdp, sid, filePath, targetId, args = []) {
   const isFullPage = args.includes('--full');
   const resolvedPath = filePath && !filePath.startsWith('--') ? filePath : null;
 
