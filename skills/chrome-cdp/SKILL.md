@@ -158,6 +158,13 @@ CSS px = screenshot image px / DPR
 - Use `keypress` to send keyboard events (arrow keys, Enter, F-keys, etc.) — works for page navigation, shortcuts, and any key-based interactions.
 - Chrome shows an "Allow debugging" modal once per tab on first access. A background daemon keeps the session alive so subsequent commands need no further approval. Daemons auto-exit after 120 minutes of inactivity.
 
+**⚠ Restarting the daemon is the last resort.** Every daemon restart requires the user to manually click "Allow" in Chrome's debugging prompt — this is disruptive, requires the user to be watching the browser, and cannot be automated. Before restarting, always try:
+1. `debug <target> reset` — recovers from inconsistent debugger state (after `Debugger.disable`, lost breakpoints, etc.)
+2. Re-run the command — transient CDP errors (timeouts, connection glitches) often resolve on retry
+3. `evalraw` with care — some CDP methods produce warnings but still work; only `Target.detachFromTarget` on the daemon's own session is blocked
+
+The daemon is designed to survive normal usage without restarts. If you find a scenario that forces a restart, that's a bug — report it.
+
 ## Plugin System
 
 The chrome-cdp skill supports plugins for specific use cases. Plugins are located in `<skill_dir>/scripts/plugins/` subdirectories.
