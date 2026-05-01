@@ -3,6 +3,53 @@ import { registerCommand } from '../lib/command-registry.mjs';
 import { isTextMimeType, redactHeaders } from '../lib/utils.mjs';
 import { evalStr } from './eval.mjs';
 
+function formatInitiator(initiator) {
+  if (!initiator) return 'No initiator info available.';
+
+  const lines = [`Initiator (type: ${initiator.type})`];
+
+  if (initiator.type === 'parser') {
+    if (initiator.url) {
+      lines.push(`  URL: ${initiator.url}${initiator.lineNumber >= 0 ? `:${initiator.lineNumber + 1}` : ''}`);
+    }
+    return lines.join('\n');
+  }
+
+  if (initiator.stack) {
+    const frames = initiator.stack.callFrames || [];
+    if (frames.length > 0) {
+      lines.push('  Call Stack:');
+      for (const f of frames.slice(0, 10)) {
+        const name = f.functionName || '<anonymous>';
+        const url = f.url ? f.url.split('/').pop() : `script:${f.scriptId}`;
+        lines.push(`    ${name} @ ${url}:${f.lineNumber + 1}:${f.columnNumber + 1}`);
+      }
+      if (frames.length > 10) lines.push(`    ... and ${frames.length - 10} more`);
+    }
+
+    let parent = initiator.stack.parent;
+    let depth = 1;
+    while (parent) {
+      const parentFrames = parent.callFrames || [];
+      if (parentFrames.length > 0) {
+        lines.push(`  Async Parent Stack (depth ${depth}):`);
+        for (const f of parentFrames.slice(0, 5)) {
+          const name = f.functionName || '<anonymous>';
+          const url = f.url ? f.url.split('/').pop() : `script:${f.scriptId}`;
+          lines.push(`    ${name} @ ${url}:${f.lineNumber + 1}:${f.columnNumber + 1}`);
+        }
+        if (parentFrames.length > 5) lines.push(`    ... and ${parentFrames.length - 5} more`);
+      }
+      parent = parent.parent;
+      depth++;
+    }
+  } else if (initiator.url) {
+    lines.push(`  URL: ${initiator.url}${initiator.lineNumber >= 0 ? `:${initiator.lineNumber + 1}` : ''}`);
+  }
+
+  return lines.join('\n');
+}
+
 async function netStr(cdp, sid) {
   const raw = await evalStr(cdp, sid, `JSON.stringify(performance.getEntriesByType('resource').map(e => ({
     name: e.name.substring(0, 120), type: e.initiatorType,
@@ -139,7 +186,8 @@ async function netDetailStr(cdp, sid, cachedRequests, id, options) {
       headers: redactHeaders(req.requestHeaders, raw),
       body: req.requestBody
     },
-    response: responseObj
+    response: responseObj,
+    initiator: req.initiator || null,
   }, null, 2);
 }
 
@@ -151,6 +199,12 @@ async function netHandleCommand(cdp, sid, cachedRequests, requestIdState, args) 
     cachedRequests.length = 0;
     requestIdState.next = 1;
     return `Cleared ${count} cached requests`;
+  }
+
+  if (filter === 'initiator' && args[1] && /^\d+$/.test(args[1])) {
+    const req = cachedRequests.find(r => r.id === parseInt(args[1]));
+    if (!req) throw new Error(`Request ${args[1]} not found`);
+    return formatInitiator(req.initiator);
   }
 
   if (filter && /^\d+$/.test(filter)) {
@@ -165,3 +219,5 @@ registerCommand('net', async ({ cdp, sessionId, cachedRequests, requestIdState, 
   netHandleCommand(cdp, sessionId, cachedRequests, requestIdState, args));
 registerCommand('network', async ({ cdp, sessionId, cachedRequests, requestIdState, args }) =>
   netHandleCommand(cdp, sessionId, cachedRequests, requestIdState, args));
+
+export { netHandleCommand, formatInitiator };
