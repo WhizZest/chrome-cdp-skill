@@ -119,9 +119,11 @@ async function runDaemon(targetId) {
   process.on('SIGINT', shutdown);
   process.on('uncaughtException', (e) => {
     process.stderr.write(`Daemon uncaught exception: ${e.message}\n`);
+    process.exit(1);
   });
   process.on('unhandledRejection', (reason) => {
     process.stderr.write(`Daemon unhandled rejection: ${reason}\n`);
+    process.exit(1);
   });
 
   let idleTimer = setTimeout(shutdown, IDLE_TIMEOUT);
@@ -210,7 +212,7 @@ async function getOrStartTabDaemon(targetId) {
   throw new Error('Daemon failed to start — did you click Allow in Chrome?');
 }
 
-function sendCommand(conn, req) {
+function sendCommand(conn, req, timeout = TIMEOUT) {
   return new Promise((resolve, reject) => {
     let buf = '';
     let settled = false;
@@ -265,8 +267,8 @@ function sendCommand(conn, req) {
       settled = true;
       cleanup();
       conn.end();
-      reject(new Error(`Timeout: command ${req.cmd} did not respond within ${TIMEOUT}ms`));
-    }, TIMEOUT);
+      reject(new Error(`Timeout: command ${req.cmd} did not respond within ${timeout}ms`));
+    }, timeout);
 
     req.id = 1;
     conn.write(JSON.stringify(req) + '\n');

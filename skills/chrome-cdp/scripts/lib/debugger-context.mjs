@@ -318,11 +318,8 @@ async function resume() {
   try {
     await cdpRef.send('Debugger.resume', {}, sidRef);
   } catch (e) {
-    if (e.message && e.message.includes('while paused')) {
-      pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
-      throw new Error('Execution is not paused (state synchronized)');
-    }
-    throw e;
+    pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
+    throw new Error('Execution is not paused (state synchronized)');
   }
 }
 

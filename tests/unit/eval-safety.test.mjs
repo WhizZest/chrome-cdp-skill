@@ -1,38 +1,6 @@
 import assert from 'assert/strict';
-import { describe, test, testAsync, summary } from '../lib/test-runner.mjs';
-
-const WARN_CDP_METHODS = new Set([
-  'Debugger.disable', 'Debugger.enable', 'Network.disable', 'Network.enable',
-  'Page.disable', 'Page.enable',
-  'Target.detachFromTarget', 'Target.closeTarget',
-  'Target.disposeBrowserContext',
-]);
-
-function evalRawCheck(method, paramsJson, sid) {
-  if (!method) throw new Error('CDP method required (e.g. "DOM.getDocument")');
-  let params = {};
-  if (paramsJson) {
-    try { params = JSON.parse(paramsJson); }
-    catch { throw new Error(`Invalid JSON params: ${paramsJson}`); }
-  }
-  if (method === 'Target.detachFromTarget' && params.sessionId === sid) {
-    throw new Error('Blocked: detaching the daemon\'s own session would kill it. Use "stop" command instead.');
-  }
-  const warn = WARN_CDP_METHODS.has(method);
-  if (!warn) return { type: 'pass' };
-  const hints = {
-    'Debugger.disable': 'Use "debug reset" to recover debugger state.',
-    'Debugger.enable': 'This may conflict with the debugger\'s internal state.',
-    'Network.disable': 'Daemon network caching will stop working.',
-    'Network.enable': 'This may cause duplicate network events.',
-    'Page.disable': 'Navigation commands will stop working.',
-    'Page.enable': 'This may cause duplicate page events.',
-    'Target.detachFromTarget': 'Detaching a session may break debugging for that target.',
-    'Target.closeTarget': 'Closing the current tab will kill the daemon.',
-    'Target.disposeBrowserContext': 'Disposing the default context will break the session.',
-  };
-  return { type: 'warn', hint: hints[method] };
-}
+import { describe, test, summary } from '../lib/test-runner.mjs';
+import { WARN_CDP_METHODS, evalRawCheck } from '../../skills/chrome-cdp/scripts/lib/eval-safety.mjs';
 
 describe('evalraw: blocked commands', () => {
   test('Target.detachFromTarget with daemon session is blocked', () => {
@@ -134,6 +102,15 @@ describe('evalraw: input validation', () => {
       () => evalRawCheck('DOM.getDocument', '{bad json}', 'ABC123'),
       /Invalid JSON params/
     );
+  });
+});
+
+describe('evalraw: WARN_CDP_METHODS consistency', () => {
+  test('all WARN_CDP_METHODS entries produce warn type', () => {
+    for (const method of WARN_CDP_METHODS) {
+      const result = evalRawCheck(method, null, 'OTHER_SESSION');
+      assert.equal(result.type, 'warn', `${method} should produce warn`);
+    }
   });
 });
 

@@ -74,7 +74,7 @@ describe('daemon IPC: sendCommand protocol', () => {
   });
 
   testAsync('sendCommand handles timeout', async () => {
-    const { TIMEOUT } = await import('../../skills/chrome-cdp/scripts/lib/constants.mjs');
+    const TEST_TIMEOUT = 500;
     const server = net.createServer((conn) => {
     });
 
@@ -86,11 +86,12 @@ describe('daemon IPC: sendCommand protocol', () => {
 
     const start = Date.now();
     await assert.rejects(
-      () => sendCommand(conn, { cmd: 'slow' }),
+      () => sendCommand(conn, { cmd: 'slow' }, TEST_TIMEOUT),
       /Timeout/
     );
     const elapsed = Date.now() - start;
-    assert.ok(elapsed >= TIMEOUT - 500, `Timeout too early: ${elapsed}ms < ${TIMEOUT - 500}ms`);
+    assert.ok(elapsed >= TEST_TIMEOUT - 100, `Timeout too early: ${elapsed}ms < ${TEST_TIMEOUT - 100}ms`);
+    assert.ok(elapsed < TEST_TIMEOUT + 1000, `Timeout too late: ${elapsed}ms`);
     server.close();
   });
 });
