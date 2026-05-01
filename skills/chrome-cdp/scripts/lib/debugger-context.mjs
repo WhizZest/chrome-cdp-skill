@@ -10,6 +10,7 @@ let offScriptParsed = null;
 let offPaused = null;
 let offResumed = null;
 let skipDebuggerStatements = true;
+let userPaused = false;
 let offAutoResume = null;
 
 async function enable(cdp, sessionId) {
@@ -80,10 +81,11 @@ async function enable(cdp, sessionId) {
       hitBreakpoints: params.hitBreakpoints,
       data: params.data,
     };
-    if (skipDebuggerStatements && params.reason === 'other'
+    if (skipDebuggerStatements && !userPaused && params.reason === 'other'
         && (!params.hitBreakpoints || params.hitBreakpoints.length === 0)) {
       cdpRef.send('Debugger.resume', {}, sidRef).catch(() => {});
     }
+    userPaused = false;
   });
 
   offResumed = cdp.onEvent('Debugger.resumed', (params, msg) => {
@@ -112,6 +114,7 @@ async function disable() {
   scripts.clear();
   urlToScripts.clear();
   pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
+  userPaused = false;
   enabled = false;
   cdpRef = null;
   sidRef = null;
@@ -299,6 +302,7 @@ async function resume() {
 
 async function pause() {
   if (!cdpRef) throw new Error('Debugger not enabled');
+  userPaused = true;
   await cdpRef.send('Debugger.pause', {}, sidRef);
 }
 
