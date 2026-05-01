@@ -42,6 +42,9 @@ The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux,
 <skill_dir>/scripts/cdp.mjs eval   <target> "expression"      # evaluate JS in page context
 <skill_dir>/scripts/cdp.mjs nav    <target> https://...       # navigate and wait for load
 <skill_dir>/scripts/cdp.mjs net    <target>                   # list cached HTTP requests (see --help for options)
+<skill_dir>/scripts/cdp.mjs console <target>                  # list console messages
+<skill_dir>/scripts/cdp.mjs ws     <target>                   # list WebSocket connections
+<skill_dir>/scripts/cdp.mjs intercept <target> on             # enable network interception
 <skill_dir>/scripts/cdp.mjs click  <target> "selector"        # click element by CSS selector
 <skill_dir>/scripts/cdp.mjs clickxy <target> <x> <y>          # click at CSS pixel coordinates
 <skill_dir>/scripts/cdp.mjs type   <target> "text"            # type at focused element (works in cross-origin iframes)
@@ -98,6 +101,44 @@ The `debug` command provides full JavaScript debugging via Chrome's Debugger dom
 3. **Reset**: `debug <target> reset` recovers from inconsistent state (after `Debugger.disable`, lost breakpoints, etc.) — **no daemon restart or Chrome "Allow" click needed**
 
 **Navigation**: URL breakpoints survive across navigations (CDP feature). Code and XHR breakpoints are restored after navigation. Navigation waits for `DOMContentLoaded` rather than full `load`, which is more tolerant of `debugger;` anti-debugging.
+
+### Console messages
+
+```bash
+<skill_dir>/scripts/cdp.mjs console <target>                # list console messages
+<skill_dir>/scripts/cdp.mjs console <target> <id>           # view message details
+<skill_dir>/scripts/cdp.mjs console <target> error          # filter by type
+<skill_dir>/scripts/cdp.mjs console <target> clear          # clear cache
+```
+
+Captures `console.log/warn/error` and uncaught exceptions with source URL and line number.
+
+### WebSocket analysis
+
+```bash
+<skill_dir>/scripts/cdp.mjs ws <target>                     # list connections
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid>              # view messages
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --analyze    # pattern analysis
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --group A    # view pattern group
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --sent       # sent frames only
+<skill_dir>/scripts/cdp.mjs ws <target> <wsid> --received   # received frames only
+```
+
+Pattern analysis groups frames by direction + payload prefix + size class (A, B, C...), useful for reverse engineering WebSocket protocols.
+
+### Network interception
+
+```bash
+<skill_dir>/scripts/cdp.mjs intercept <target> on           # enable (Request stage by default)
+<skill_dir>/scripts/cdp.mjs intercept <target> off          # disable
+<skill_dir>/scripts/cdp.mjs intercept <target> modify-header <pattern> <header> <value>
+<skill_dir>/scripts/cdp.mjs intercept <target> mock <pattern> [status] [body]
+<skill_dir>/scripts/cdp.mjs intercept <target> block <pattern>
+<skill_dir>/scripts/cdp.mjs intercept <target> list         # list rules + hit counts
+<skill_dir>/scripts/cdp.mjs intercept <target> stats        # statistics
+```
+
+Uses Chrome's Fetch Domain to intercept and modify requests. URL patterns support exact, substring, and glob (`*`) matching.
 
 ### Daemon info
 
