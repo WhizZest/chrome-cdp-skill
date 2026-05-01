@@ -592,11 +592,12 @@ async function handleTrace(dbg, cdp, sessionId, args) {
   const logThis = !!flags['log-this'];
   const traceId = flags['trace-id'] || funcName;
 
+  const traceLabel = `[Trace ${traceId}] called`;
   const logParts = [];
-  logParts.push(`'[Trace ${traceId}] called'`);
+  logParts.push(JSON.stringify(traceLabel));
   logParts.push(`JSON.stringify(Array.from(arguments)).slice(0,500)`);
   if (logThis) {
-    logParts.push(`JSON.stringify(this,(k,v)=>typeof v==='function'?'[Function]':v).slice(0,500)`);
+    logParts.push(`(function(){try{return JSON.stringify(this,(k,v)=>typeof v==='function'?'[Function]':v).slice(0,500)}catch(e){return'[serialize error: '+e.message+']'}}).call(this)`);
   }
   const logExpr = `console.log(${logParts.join(', ')})`;
   const condition = shouldPause ? logExpr : `(${logExpr}, false)`;

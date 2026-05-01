@@ -2,7 +2,7 @@ import { registerCommand } from '../lib/command-registry.mjs';
 import * as consoleCtx from '../lib/console-context.mjs';
 
 function formatMessageList(result) {
-  const { messages, total, page, size, totalPages, navigationSeparators } = result;
+  const { messages, total, page, size, totalPages, preserve } = result;
   if (total === 0) return 'No console messages.';
 
   const start = (page - 1) * size + 1;
@@ -10,21 +10,18 @@ function formatMessageList(result) {
 
   const lines = [`Console messages (${total} total, showing ${start}-${end}):`];
 
-  if (navigationSeparators && navigationSeparators.length > 0) {
-    for (const sep of navigationSeparators) {
-      const timeStr = sep.timestamp ? ` (${new Date(sep.timestamp).toLocaleTimeString()})` : ' (current)';
-      lines.push(`--- Navigation: ${sep.url || '(unknown)'}${timeStr} ---`);
+  for (const item of messages) {
+    if (item.separator) {
+      const timeStr = item.timestamp ? ` (${new Date(item.timestamp).toLocaleTimeString()})` : ' (current)';
+      lines.push(`--- Navigation: ${item.url || '(unknown)'}${timeStr} ---`);
+      continue;
     }
-    lines.push('');
-  }
-
-  for (const msg of messages) {
-    const type = msg.type.padEnd(7);
-    const text = msg.text.length > 80 ? msg.text.substring(0, 77) + '...' : msg.text;
-    const source = msg.url
-      ? `  ${msg.url.split('/').pop()}:${msg.lineNumber >= 0 ? msg.lineNumber + 1 : '?'}`
+    const type = item.type.padEnd(7);
+    const text = item.text.length > 80 ? item.text.substring(0, 77) + '...' : item.text;
+    const source = item.url
+      ? `  ${item.url.split('/').pop()}:${item.lineNumber >= 0 ? item.lineNumber + 1 : '?'}`
       : '';
-    lines.push(`  [${msg.id}]  ${type} ${text}${source}`);
+    lines.push(`  [${item.id}]  ${type} ${text}${source}`);
   }
 
   if (totalPages > 1) {

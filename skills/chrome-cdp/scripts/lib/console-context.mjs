@@ -111,26 +111,64 @@ function getMessages(filter, page = 1, size = 20, preserve = false) {
     source.push(...messages);
   }
 
-  let filtered = source.filter(m => !m.separator);
   if (filter && filter !== 'clear' && !filter.startsWith('--') && !/^\d+$/.test(filter)) {
     const typeMap = { warn: 'warning' };
     const targetType = typeMap[filter] || filter;
-    filtered = filtered.filter(m => m.type === targetType);
+    source = source.filter(m => m.separator || m.type === targetType);
   }
 
-  const total = filtered.length;
-  const start = (page - 1) * size;
-  const end = Math.min(start + size, total);
-  const pageItems = filtered.slice(start, end);
+  const totalMessages = source.filter(m => !m.separator).length;
+  const total = totalMessages;
+  const totalPages = Math.ceil(total / size);
+  const currentPage = Math.min(page, totalPages) || 1;
 
-  const separators = preserve ? source.filter(m => m.separator) : [];
+  if (preserve) {
+    let msgCount = 0;
+    const pageStart = (currentPage - 1) * size;
+    const pageEnd = pageStart + size;
+    const pageItems = [];
+    let started = false;
+
+    for (const item of source) {
+      if (item.separator) {
+        if (started) pageItems.push(item);
+        continue;
+      }
+      msgCount++;
+      if (msgCount > pageEnd) break;
+      if (msgCount > pageStart) {
+        if (!started) {
+          for (const s of source) {
+            if (s === item) break;
+            if (s.separator) pageItems.push(s);
+          }
+          started = true;
+        }
+        pageItems.push(item);
+      }
+    }
+
+    return {
+      messages: pageItems,
+      total,
+      page: currentPage,
+      size,
+      totalPages,
+      preserve: true,
+    };
+  }
+
+  const start = (currentPage - 1) * size;
+  const end = Math.min(start + size, total);
+  const pageItems = source.slice(start, end);
+
   return {
     messages: pageItems,
     total,
-    page,
+    page: currentPage,
     size,
-    totalPages: Math.ceil(total / size),
-    navigationSeparators: separators,
+    totalPages,
+    preserve: false,
   };
 }
 

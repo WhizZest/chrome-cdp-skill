@@ -123,13 +123,16 @@ export async function shotStr(cdp, sid, filePath, targetId, args = []) {
     await sleep(500);
   }
 
-  const { data } = await cdp.send('Page.captureScreenshot', { format: 'png' }, sid);
-
-  if (isFullPage) {
-    if (originalMetrics) {
-      try { await cdp.send('Emulation.setDeviceMetricsOverride', originalMetrics, sid); } catch {}
-    } else {
-      try { await cdp.send('Emulation.clearDeviceMetricsOverride', {}, sid); } catch {}
+  let data;
+  try {
+    ({ data } = await cdp.send('Page.captureScreenshot', { format: 'png' }, sid));
+  } finally {
+    if (isFullPage) {
+      if (originalMetrics) {
+        try { await cdp.send('Emulation.setDeviceMetricsOverride', originalMetrics, sid); } catch {}
+      } else {
+        try { await cdp.send('Emulation.clearDeviceMetricsOverride', {}, sid); } catch {}
+      }
     }
   }
 

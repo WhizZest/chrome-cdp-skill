@@ -85,7 +85,8 @@ await describe('cross-navigation: console message preservation', async () => {
     }, SID);
 
     const result = ctx.getMessages(null, 1, 50, true);
-    assert.ok(result.navigationSeparators.length >= 2, 'Should have at least 2 navigation separators');
+    const separators = result.messages.filter(m => m.separator);
+    assert.ok(separators.length >= 2, 'Should have at least 2 navigation separators');
 
     ctx.disable();
   });
@@ -172,13 +173,14 @@ await describe('cross-navigation: console message preservation', async () => {
     }, SID);
 
     const result = ctx.getMessages(null, 1, 50, true);
-    const texts = result.messages.map(m => m.text);
+    const allItems = result.messages;
+    const texts = allItems.filter(m => !m.separator).map(m => m.text);
 
     assert.ok(!texts.includes('page1'), 'Empty navigation (page1) should not create history');
     assert.ok(texts.includes('hello'), 'Message before page3 nav should be in history');
     assert.ok(texts.includes('world'), 'Current navigation message should appear');
 
-    const historySeparators = result.navigationSeparators.filter(s => s.url === 'https://example.com/page1');
+    const historySeparators = allItems.filter(s => s.separator && s.url === 'https://example.com/page1');
     assert.equal(historySeparators.length, 0, 'No separator for empty navigation');
 
     ctx.disable();
