@@ -39,7 +39,7 @@ The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux,
 <skill_dir>/scripts/cdp.mjs shot   <target>                   # screenshot → runtime dir
 <skill_dir>/scripts/cdp.mjs snap   <target>                   # accessibility tree (compact, semantic)
 <skill_dir>/scripts/cdp.mjs html   <target> [".selector"]     # full HTML or scoped to CSS selector
-<skill_dir>/scripts/cdp.mjs eval   <target> "expression"      # evaluate JS in page context
+<skill_dir>/scripts/cdp.mjs eval   <target> "expression"      # evaluate JS [--save file] [--binary]
 <skill_dir>/scripts/cdp.mjs nav    <target> https://...       # navigate and wait for load
 <skill_dir>/scripts/cdp.mjs net    <target>                   # list cached HTTP requests (see --help for options)
 <skill_dir>/scripts/cdp.mjs console <target>                  # list console messages
@@ -92,7 +92,10 @@ The `debug` command provides full JavaScript debugging via Chrome's Debugger dom
 <skill_dir>/scripts/cdp.mjs debug <target> neutralize         # strip debugger; from new pages
 <skill_dir>/scripts/cdp.mjs debug <target> neutralize-remove  # remove neutralization
 <skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls
+<skill_dir>/scripts/cdp.mjs debug <target> logpoint <url> <line> [col] --expr <expr>  # logpoint (no pause)
 <skill_dir>/scripts/cdp.mjs debug <target> inject <code>      # inject script before page load
+<skill_dir>/scripts/cdp.mjs debug <target> inject-remove <id> # remove injected script
+<skill_dir>/scripts/cdp.mjs debug <target> inject-list        # list injected scripts
 ```
 
 **Anti-debugging**: Some websites use `debugger;` statements to block DevTools. The debugger handles this in multiple ways:

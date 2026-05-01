@@ -44,8 +44,11 @@ Captures the **viewport only**. Scroll first with `eval` if you need content bel
 ### Evaluate JavaScript
 
 ```bash
-<skill_dir>/scripts/cdp.mjs eval <target> <expr>
+<skill_dir>/scripts/cdp.mjs eval <target> <expr> [--save <file>] [--binary]
 ```
+
+- `--save <file>`: Write result to a local file instead of returning it
+- `--binary`: Treat result as binary data (ArrayBuffer/TypedArray). Auto-converts to base64, decodes on `--save`
 
 > **Watch out:** avoid index-based selection (`querySelectorAll(...)[i]`) across multiple `eval` calls when the DOM can change between them (e.g. after clicking Ignore, card indices shift). Collect all data in one `eval` or use stable selectors.
 
@@ -178,10 +181,12 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 
 # Advanced
 <skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls (--filter url, --pause)
+<skill_dir>/scripts/cdp.mjs debug <target> logpoint <url> <line> [col] --expr <expression>  # set logpoint (no pause, logs to console)
 <skill_dir>/scripts/cdp.mjs debug <target> neutralize         # strip debugger; statements from new pages
 <skill_dir>/scripts/cdp.mjs debug <target> neutralize-remove  # remove debugger; neutralization
 <skill_dir>/scripts/cdp.mjs debug <target> inject <code>      # inject script before every page load
 <skill_dir>/scripts/cdp.mjs debug <target> inject-remove <id> # remove injected script
+<skill_dir>/scripts/cdp.mjs debug <target> inject-list        # list all injected scripts
 ```
 
 **Search tips**: `search` automatically skips matches in minified files (lines > 10000 chars). Use `--no-exclude-minified` to include them. Use `--filter url` to narrow results to specific scripts.
