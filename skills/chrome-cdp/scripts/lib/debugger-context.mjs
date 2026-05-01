@@ -225,7 +225,7 @@ function clearScripts() {
   urlToScripts.clear();
 }
 
-async function setBreakpoint(url, lineNumber, columnNumber = 0, condition) {
+async function setBreakpoint(url, lineNumber, columnNumber = 0, condition, isLogpoint = false) {
   if (!cdpRef) throw new Error('Debugger not enabled');
   const params = { lineNumber, columnNumber, url };
   if (condition) params.condition = condition;
@@ -236,6 +236,7 @@ async function setBreakpoint(url, lineNumber, columnNumber = 0, condition) {
     lineNumber,
     columnNumber,
     condition: condition || null,
+    isLogpoint,
     locations: (result.locations || []).map(loc => ({
       scriptId: loc.scriptId,
       lineNumber: loc.lineNumber,
@@ -246,7 +247,7 @@ async function setBreakpoint(url, lineNumber, columnNumber = 0, condition) {
   return info;
 }
 
-async function setBreakpointByUrlRegex(urlRegex, lineNumber, columnNumber = 0, condition) {
+async function setBreakpointByUrlRegex(urlRegex, lineNumber, columnNumber = 0, condition, isLogpoint = false) {
   if (!cdpRef) throw new Error('Debugger not enabled');
   const params = { lineNumber, columnNumber, urlRegex };
   if (condition) params.condition = condition;
@@ -258,6 +259,7 @@ async function setBreakpointByUrlRegex(urlRegex, lineNumber, columnNumber = 0, c
     columnNumber,
     condition: condition || null,
     isRegex: true,
+    isLogpoint,
     locations: (result.locations || []).map(loc => ({
       scriptId: loc.scriptId,
       lineNumber: loc.lineNumber,
@@ -435,6 +437,23 @@ function setSkipDebuggerStatements(skip) {
 }
 
 let antiDebugScriptId = null;
+const injectedScripts = new Map();
+
+function addInjectedScript(identifier, source) {
+  injectedScripts.set(identifier, { identifier, source, timestamp: Date.now() });
+}
+
+function removeInjectedScript(identifier) {
+  injectedScripts.delete(identifier);
+}
+
+function getInjectedScripts() {
+  return [...injectedScripts.values()];
+}
+
+function clearInjectedScripts() {
+  injectedScripts.clear();
+}
 
 async function neutralizeDebuggerStatements(cdp, sessionId) {
   if (antiDebugScriptId) return antiDebugScriptId;
@@ -477,4 +496,5 @@ export {
   getScopeVariables, evaluateOnCallFrame,
   setSkipDebuggerStatements,
   neutralizeDebuggerStatements, removeNeutralizeDebuggerStatements,
+  addInjectedScript, removeInjectedScript, getInjectedScripts, clearInjectedScripts,
 };
