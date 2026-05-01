@@ -73,6 +73,9 @@ Usage: cdp <command> [args]
   debug <target> unbreakxhr <pat>   Remove XHR breakpoint
   debug <target> pause              Pause JS execution
   debug <target> resume             Resume JS execution
+  debug <target> reset              Reset debugger state (re-enable, restore breakpoints)
+  debug <target> neutralize         Strip debugger; statements from new pages
+  debug <target> neutralize-remove  Remove debugger; neutralization
   debug <target> stepover           Step over
   debug <target> stepinto           Step into
   debug <target> stepout            Step out

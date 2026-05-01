@@ -24,8 +24,6 @@ async function enable(cdp, sessionId) {
   sidRef = sessionId;
   scripts.clear();
   urlToScripts.clear();
-  breakpoints.clear();
-  xhrBreakpoints.clear();
   pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
   userPaused = false;
   stepping = false;
@@ -92,7 +90,9 @@ async function enable(cdp, sessionId) {
     };
     if (skipDebuggerStatements && !userPaused && !stepping && params.reason === 'other'
         && (!params.hitBreakpoints || params.hitBreakpoints.length === 0)) {
+      pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
       cdpRef.send('Debugger.resume', {}, sidRef).catch(() => {});
+      return;
     }
     userPaused = false;
   });
@@ -111,6 +111,12 @@ async function enable(cdp, sessionId) {
   enabled = true;
 }
 
+async function reset(cdp, sessionId) {
+  await disable();
+  await enable(cdp, sessionId);
+  return await restoreBreakpoints();
+}
+
 async function disable() {
   if (!enabled || !cdpRef) return;
 
@@ -120,16 +126,43 @@ async function disable() {
 
   try { await cdpRef.send('Debugger.disable', {}, sidRef); } catch {}
 
+  for (const id of Array.from(breakpoints.keys())) {
+    try { await cdpRef.send('Debugger.removeBreakpoint', { breakpointId: id }, sidRef); } catch {}
+  }
+  for (const url of Array.from(xhrBreakpoints)) {
+    try { await cdpRef.send('DOMDebugger.removeXHRBreakpoint', { url }, sidRef); } catch {}
+  }
+
   scripts.clear();
   urlToScripts.clear();
-  breakpoints.clear();
-  xhrBreakpoints.clear();
   pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
   userPaused = false;
   stepping = false;
   enabled = false;
   cdpRef = null;
   sidRef = null;
+}
+
+async function restoreBreakpoints() {
+  if (!cdpRef) throw new Error('Debugger not enabled');
+  const oldBreakpoints = new Map(breakpoints);
+  breakpoints.clear();
+  for (const [oldId, bp] of oldBreakpoints) {
+    try {
+      const params = { lineNumber: bp.lineNumber, columnNumber: bp.columnNumber };
+      if (bp.isRegex) params.urlRegex = bp.url;
+      else params.url = bp.url;
+      if (bp.condition) params.condition = bp.condition;
+      const result = await cdpRef.send('Debugger.setBreakpointByUrl', params, sidRef);
+      breakpoints.set(result.breakpointId, { ...bp, breakpointId: result.breakpointId, locations: (result.locations || []).map(loc => ({ scriptId: loc.scriptId, lineNumber: loc.lineNumber, columnNumber: loc.columnNumber ?? 0 })) });
+    } catch {}
+  }
+  for (const url of Array.from(xhrBreakpoints)) {
+    try {
+      await cdpRef.send('DOMDebugger.setXHRBreakpoint', { url }, sidRef);
+    } catch {}
+  }
+  return `Restored ${breakpoints.size} breakpoint(s), ${xhrBreakpoints.size} XHR breakpoint(s).`;
 }
 
 function isEnabled() { return enabled; }
@@ -282,7 +315,12 @@ function getPausedState() { return pausedState; }
 async function resume() {
   if (!cdpRef) throw new Error('Debugger not enabled');
   if (!pausedState.isPaused) throw new Error('Execution is not paused');
-  await cdpRef.send('Debugger.resume', {}, sidRef);
+  try {
+    await cdpRef.send('Debugger.resume', {}, sidRef);
+  } catch (e) {
+    pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
+    throw new Error('Execution is not paused (state synchronized)');
+  }
 }
 
 async function pause() {
@@ -428,12 +466,12 @@ async function removeNeutralizeDebuggerStatements(cdp, sessionId) {
 }
 
 export {
-  enable, disable, isEnabled,
+  enable, disable, reset, isEnabled,
   getScripts, getScriptsByUrl, getScriptsByUrlPattern, getScriptById,
   getScriptSource, getScriptSourceByUrl, searchInScripts, clearScripts,
   setBreakpoint, setBreakpointByUrlRegex, removeBreakpoint, removeAllBreakpoints,
   getBreakpoints, getBreakpointById,
-  setXHRBreakpoint, removeXHRBreakpoint, getXHRBreakpoints, restoreXHRBreakpoints,
+  setXHRBreakpoint, removeXHRBreakpoint, getXHRBreakpoints, restoreXHRBreakpoints, restoreBreakpoints,
   isPaused, getPausedState, resume, pause,
   stepOver, stepInto, stepOut,
   getScopeVariables, evaluateOnCallFrame,

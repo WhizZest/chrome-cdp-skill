@@ -1,4 +1,5 @@
 import { registerCommand } from '../lib/command-registry.mjs';
+import { WARN_CDP_METHODS, WARN_HINTS } from '../lib/eval-safety.mjs';
 
 export async function evalStr(cdp, sid, expression) {
   await cdp.send('Runtime.enable', {}, sid);
@@ -19,8 +20,14 @@ async function evalRawStr(cdp, sid, method, paramsJson) {
     try { params = JSON.parse(paramsJson); }
     catch { throw new Error(`Invalid JSON params: ${paramsJson}`); }
   }
+  if (method === 'Target.detachFromTarget' && params.sessionId === sid) {
+    throw new Error('Blocked: detaching the daemon\'s own session would kill it. Use "stop" command instead.');
+  }
+  const warn = WARN_CDP_METHODS.has(method);
   const result = await cdp.send(method, params, sid);
-  return JSON.stringify(result, null, 2);
+  const output = JSON.stringify(result, null, 2);
+  if (!warn) return output;
+  return `⚠ Warning: ${method} may desynchronize daemon state. ${WARN_HINTS[method] || 'Use "debug reset" to recover if needed.'}\n\n${output}`;
 }
 
 registerCommand('eval', async ({ cdp, sessionId, args }) => {

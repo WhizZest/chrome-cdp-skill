@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs';
 import { spawn } from 'child_process';
 import net from 'net';
 import {
-  IDLE_TIMEOUT,
+  IDLE_TIMEOUT, TIMEOUT,
   DAEMON_CONNECT_RETRIES, DAEMON_CONNECT_DELAY,
   IS_WINDOWS, PAGES_CACHE,
 } from './constants.mjs';
@@ -117,6 +117,14 @@ async function runDaemon(targetId) {
   cdp.onClose(() => shutdown());
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
+  process.on('uncaughtException', (e) => {
+    process.stderr.write(`Daemon uncaught exception: ${e.message}\n`);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    process.stderr.write(`Daemon unhandled rejection: ${reason}\n`);
+    process.exit(1);
+  });
 
   let idleTimer = setTimeout(shutdown, IDLE_TIMEOUT);
   function resetIdle() {
@@ -128,6 +136,7 @@ async function runDaemon(targetId) {
     resetIdle();
     try {
       if (cmd === 'stop') return { ok: true, result: '', stopAfter: true };
+      if (cmd === 'info') return { ok: true, result: JSON.stringify({ targetId, sessionId, pid: process.pid, uptime: Math.round(process.uptime()) }) };
       const handler = getCommandHandler(cmd);
       if (handler) {
         const result = await handler({ cdp, sessionId, cachedRequests, requestIdState, args, targetId, dbg });
@@ -158,6 +167,10 @@ async function runDaemon(targetId) {
           const payload = JSON.stringify({ ...res, id: req.id }) + '\n';
           if (res.stopAfter) conn.end(payload, shutdown);
           else conn.write(payload);
+        }).catch((e) => {
+          try {
+            conn.write(JSON.stringify({ ok: false, error: e.message, id: req.id }) + '\n');
+          } catch {}
         });
       }
     });
@@ -199,12 +212,14 @@ async function getOrStartTabDaemon(targetId) {
   throw new Error('Daemon failed to start — did you click Allow in Chrome?');
 }
 
-function sendCommand(conn, req) {
+function sendCommand(conn, req, timeout = TIMEOUT) {
   return new Promise((resolve, reject) => {
     let buf = '';
     let settled = false;
+    let timer;
 
     const cleanup = () => {
+      clearTimeout(timer);
       conn.off('data', onData);
       conn.off('error', onError);
       conn.off('end', onEnd);
@@ -246,6 +261,15 @@ function sendCommand(conn, req) {
     conn.on('error', onError);
     conn.on('end', onEnd);
     conn.on('close', onClose);
+
+    timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      conn.end();
+      reject(new Error(`Timeout: command ${req.cmd} did not respond within ${timeout}ms`));
+    }, timeout);
+
     req.id = 1;
     conn.write(JSON.stringify(req) + '\n');
   });

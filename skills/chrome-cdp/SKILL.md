@@ -91,8 +91,9 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 
 **Anti-debugging handling**: Some websites use `debugger;` statements (often in recursive timers) to prevent DevTools inspection. The debugger handles this in multiple ways:
 1. **Auto-skip**: By default, `debugger;` pauses (reason=`other`, no breakpoint hit) are automatically resumed, so they don't block normal operation.
-2. **Navigation with debugger active**: The debugger stays enabled during navigation — URL breakpoints (`Debugger.setBreakpointByUrl`) automatically survive across navigations (this is a CDP feature). Only XHR breakpoints (`DOMDebugger`) are restored after navigation since Chrome resets them.
-3. **Neutralize**: Optionally use `inject` to override `Function.prototype.constructor` to strip `debugger;` from dynamically created functions.
+2. **Neutralize**: Use `debug <target> neutralize` to override `Function.prototype.constructor` before page load, stripping `debugger;` from dynamically created functions. This is more effective than auto-skip for sites with heavy anti-debugging (e.g., WeChat Reading).
+3. **Navigation with debugger active**: The debugger stays enabled during navigation — URL breakpoints (`Debugger.setBreakpointByUrl`) automatically survive across navigations (this is a CDP feature). Code breakpoints and XHR breakpoints are restored after navigation since Chrome resets them.
+4. **State recovery**: If the debugger state becomes inconsistent (e.g., after external `Debugger.disable`), use `debug <target> reset` to re-enable the debugger and restore all breakpoints — no daemon restart needed.
 
 **Navigation behavior**: Navigation waits for `DOMContentLoaded` (not full `load`), which is more tolerant of `debugger;` anti-debugging. If a breakpoint is hit during page load, navigation returns a message indicating the pause — use `debug status` to inspect and `debug resume` to continue loading.
 
@@ -114,6 +115,7 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 # Execution control
 <skill_dir>/scripts/cdp.mjs debug <target> pause              # pause JS execution
 <skill_dir>/scripts/cdp.mjs debug <target> resume             # resume execution
+<skill_dir>/scripts/cdp.mjs debug <target> reset              # reset debugger state (re-enable, restore breakpoints)
 <skill_dir>/scripts/cdp.mjs debug <target> stepover           # step over
 <skill_dir>/scripts/cdp.mjs debug <target> stepinto           # step into
 <skill_dir>/scripts/cdp.mjs debug <target> stepout            # step out
@@ -125,6 +127,8 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 
 # Advanced
 <skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls (--filter url, --pause)
+<skill_dir>/scripts/cdp.mjs debug <target> neutralize         # strip debugger; statements from new pages
+<skill_dir>/scripts/cdp.mjs debug <target> neutralize-remove  # remove debugger; neutralization
 <skill_dir>/scripts/cdp.mjs debug <target> inject <code>      # inject script before every page load
 <skill_dir>/scripts/cdp.mjs debug <target> inject-remove <id> # remove injected script
 ```
@@ -132,6 +136,10 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 **Search tips**: `search` automatically skips matches in minified files (lines > 10000 chars). Use `--no-exclude-minified` to include them. Use `--filter url` to narrow results to specific scripts.
 
 **Breakpoint tips**: `breaktext` searches for code text and sets a breakpoint at the matching location — useful when you don't know the exact line number. Use `--nth N` for the Nth occurrence.
+
+**Reset tips**: `reset` is useful when the debugger state becomes inconsistent (e.g., after `evalraw Debugger.disable`). It disables and re-enables the debugger, then restores all breakpoints. No daemon restart or Chrome "Allow" click needed.
+
+**Neutralize tips**: Use `neutralize` **before** navigating to pages with `debugger;` anti-debugging. It injects a script that strips `debugger;` from dynamically created functions. For sites with heavy anti-debugging (e.g., WeChat Reading), `neutralize` is more effective than auto-skip alone.
 
 ## Coordinates
 
@@ -149,6 +157,13 @@ CSS px = screenshot image px / DPR
 - Use `type` (not eval) to enter text in cross-origin iframes — `click`/`clickxy` to focus first, then `type`.
 - Use `keypress` to send keyboard events (arrow keys, Enter, F-keys, etc.) — works for page navigation, shortcuts, and any key-based interactions.
 - Chrome shows an "Allow debugging" modal once per tab on first access. A background daemon keeps the session alive so subsequent commands need no further approval. Daemons auto-exit after 120 minutes of inactivity.
+
+**⚠ Restarting the daemon is the last resort.** Every daemon restart requires the user to manually click "Allow" in Chrome's debugging prompt — this is disruptive, requires the user to be watching the browser, and cannot be automated. Before restarting, always try:
+1. `debug <target> reset` — recovers from inconsistent debugger state (after `Debugger.disable`, lost breakpoints, etc.)
+2. Re-run the command — transient CDP errors (timeouts, connection glitches) often resolve on retry
+3. `evalraw` with care — some CDP methods produce warnings but still work; only `Target.detachFromTarget` on the daemon's own session is blocked
+
+The daemon is designed to survive normal usage without restarts. If you find a scenario that forces a restart, that's a bug — report it.
 
 ## Plugin System
 
