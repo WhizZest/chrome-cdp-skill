@@ -1,5 +1,7 @@
 import assert from 'assert/strict';
-import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, unlinkSync, existsSync, mkdirSync, rmSync } from 'fs';
+import os from 'os';
+import path from 'path';
 import { describe, testAsync, summary } from '../lib/test-runner.mjs';
 
 const EVAL_SRC = '../../skills/chrome-cdp/scripts/commands/eval.mjs';
@@ -20,7 +22,7 @@ function createMockCDP(responses = {}) {
 }
 
 const SID = 'test-session-001';
-const TEMP_DIR = 'D:\\agentSpace\\temp';
+const TEMP_DIR = path.join(os.tmpdir(), 'cdp-eval-test');
 
 const mod = await import(EVAL_SRC);
 
@@ -59,6 +61,13 @@ describe('eval: parseEvalArgs', () => {
     assert.equal(result.binary, true);
     assert.equal(result.saveFile, 'out.bin');
   });
+
+  testAsync('throws when --save has no filename', () => {
+    assert.throws(
+      () => mod.parseEvalArgs(['1+1', '--save']),
+      /--save requires a filename/
+    );
+  });
 });
 
 describe('eval: wrapBinaryExpr', () => {
@@ -69,10 +78,23 @@ describe('eval: wrapBinaryExpr', () => {
     assert.ok(wrapped.includes('Uint8Array'));
     assert.ok(wrapped.includes('fetch("/api").then(r=>r.arrayBuffer())'));
   });
+
+  testAsync('uses byteOffset/byteLength for views', () => {
+    const wrapped = mod.wrapBinaryExpr('new Uint8Array([1,2,3])');
+    assert.ok(wrapped.includes('byteOffset'));
+    assert.ok(wrapped.includes('byteLength'));
+  });
+
+  testAsync('returns tagged object with __cdpBinary', () => {
+    const wrapped = mod.wrapBinaryExpr('new ArrayBuffer(4)');
+    assert.ok(wrapped.includes('__cdpBinary'));
+    assert.ok(wrapped.includes('b64'));
+  });
 });
 
 describe('eval: --save writes file', () => {
   testAsync('saves text result to file', async () => {
+    mkdirSync(TEMP_DIR, { recursive: true });
     const cdp = createMockCDP({
       'Runtime.enable': {},
       'Runtime.evaluate': () => ({
@@ -80,7 +102,7 @@ describe('eval: --save writes file', () => {
       }),
     });
 
-    const savePath = `${TEMP_DIR}\\eval-test-text-${Date.now()}.txt`;
+    const savePath = path.join(TEMP_DIR, `eval-test-text-${Date.now()}.txt`);
     try {
       const result = await mod.evalStr(cdp, SID, '"hello world"');
       writeFileSync(savePath, result);
@@ -93,10 +115,11 @@ describe('eval: --save writes file', () => {
   });
 
   testAsync('saves binary base64 decoded to file', async () => {
+    mkdirSync(TEMP_DIR, { recursive: true });
     const testData = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
     const b64 = testData.toString('base64');
 
-    const savePath = `${TEMP_DIR}\\eval-test-bin-${Date.now()}.bin`;
+    const savePath = path.join(TEMP_DIR, `eval-test-bin-${Date.now()}.bin`);
     try {
       const content = Buffer.from(b64, 'base64');
       writeFileSync(savePath, content);
@@ -145,5 +168,7 @@ describe('eval: evalStr basic', () => {
     );
   });
 });
+
+try { rmSync(TEMP_DIR, { recursive: true }); } catch {}
 
 console.log(summary());

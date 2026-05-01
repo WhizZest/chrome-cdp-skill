@@ -20,7 +20,8 @@ export function parseEvalArgs(args) {
   let binary = false;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--save' && i + 1 < args.length) {
+    if (args[i] === '--save') {
+      if (i + 1 >= args.length) throw new Error('--save requires a filename. Usage: eval <target> <expr> [--save <file>] [--binary]');
       saveFile = args[++i];
     } else if (args[i] === '--binary') {
       binary = true;
@@ -32,7 +33,7 @@ export function parseEvalArgs(args) {
 }
 
 export function wrapBinaryExpr(expr) {
-  return `(async()=>{const __r=await(${expr});if(__r instanceof ArrayBuffer||ArrayBuffer.isView(__r)){const __u8=new Uint8Array(__r instanceof ArrayBuffer?__r:__r.buffer);let __b64='';const __chunk=8192;for(let __i=0;__i<__u8.length;__i+=__chunk){__b64+=String.fromCharCode.apply(null,__u8.subarray(__i,__i+__chunk));}return btoa(__b64);}return __r;})()`;
+  return `(async()=>{const __r=await(${expr});if(__r instanceof ArrayBuffer){const __u8=new Uint8Array(__r);let __b64='';const __chunk=8192;for(let __i=0;__i<__u8.length;__i+=__chunk){__b64+=String.fromCharCode.apply(null,__u8.subarray(__i,__i+__chunk));}return{__cdpBinary:true,b64:btoa(__b64)};}if(ArrayBuffer.isView(__r)){const __u8=new Uint8Array(__r.buffer,__r.byteOffset,__r.byteLength);let __b64='';const __chunk=8192;for(let __i=0;__i<__u8.length;__i+=__chunk){__b64+=String.fromCharCode.apply(null,__u8.subarray(__i,__i+__chunk));}return{__cdpBinary:true,b64:btoa(__b64)};}throw new Error('Expected ArrayBuffer or TypedArray, got '+typeof __r);})()`;
 }
 
 async function evalRawStr(cdp, sid, method, paramsJson) {
@@ -61,19 +62,30 @@ registerCommand('eval', async ({ cdp, sessionId, args }) => {
 
   if (saveFile) {
     let content;
+    let byteSize;
     if (binary) {
-      const b64 = result.replace(/^"|"$/g, '');
-      content = Buffer.from(b64, 'base64');
+      let parsed;
+      try { parsed = JSON.parse(result); } catch { throw new Error('Failed to parse binary result from page'); }
+      if (!parsed.__cdpBinary) throw new Error('Page did not return binary data');
+      content = Buffer.from(parsed.b64, 'base64');
+      byteSize = content.length;
     } else {
       content = result;
+      byteSize = Buffer.byteLength(content, 'utf8');
     }
-    writeFileSync(saveFile, content);
-    const size = typeof content === 'string' ? content.length : content.length;
-    return `Saved to ${saveFile} (${size} bytes)`;
+    try {
+      writeFileSync(saveFile, content);
+    } catch (e) {
+      return `Failed to save to ${saveFile}: ${e.message}`;
+    }
+    return `Saved to ${saveFile} (${byteSize} bytes)`;
   }
 
   if (binary) {
-    return `Base64 (${result.length} chars):\n${result}`;
+    let parsed;
+    try { parsed = JSON.parse(result); } catch { throw new Error('Failed to parse binary result from page'); }
+    if (!parsed.__cdpBinary) throw new Error('Page did not return binary data');
+    return `Base64 (${parsed.b64.length} chars):\n${parsed.b64}`;
   }
 
   return result;
