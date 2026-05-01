@@ -14,6 +14,7 @@ function parseFlags(args) {
     'startLine', 'endLine', 'offset', 'length', 'max',
     'filter', 'cond', 'condition', 'nth', 'frame',
     'regex', 'case', 'no-exclude-minified', 'no-scopes', 'pause',
+    'expr', 'e',
   ]);
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -283,7 +284,8 @@ async function handleBreaks(dbg, cdp, sessionId) {
   await ensureEnabled(dbg, cdp, sessionId);
   const bps = dbg.getBreakpoints();
   const xhrs = dbg.getXHRBreakpoints();
-  if (bps.length === 0 && xhrs.length === 0) return 'No active breakpoints.';
+  const injected = dbg.getInjectedScripts();
+  if (bps.length === 0 && xhrs.length === 0 && injected.length === 0) return 'No active breakpoints or injected scripts.';
 
   const lines = [];
   if (bps.length > 0) {
@@ -292,13 +294,25 @@ async function handleBreaks(dbg, cdp, sessionId) {
       lines.push(`  - ID: ${bp.breakpointId}`);
       lines.push(`    URL: ${bp.url}`);
       lines.push(`    Line: ${bp.lineNumber + 1}, Column: ${bp.columnNumber + 1}`);
-      if (bp.condition) lines.push(`    Condition: ${bp.condition}`);
+      if (bp.isLogpoint) {
+        lines.push(`    Type: LOGPOINT`);
+        lines.push(`    Expression: ${extractLogExpr(bp.condition)}`);
+      } else if (bp.condition) {
+        lines.push(`    Condition: ${bp.condition}`);
+      }
     }
   }
   if (xhrs.length > 0) {
     lines.push(`XHR breakpoints (${xhrs.length}):`);
     for (const url of xhrs) {
       lines.push(`  - ${url}`);
+    }
+  }
+  if (injected.length > 0) {
+    lines.push(`Injected scripts (${injected.length}):`);
+    for (const s of injected) {
+      const preview = s.source.length > 80 ? s.source.substring(0, 80) + '...' : s.source;
+      lines.push(`  - ID: ${s.identifier}: ${preview}`);
     }
   }
   return lines.join('\n');
@@ -349,7 +363,9 @@ async function handleResume(dbg, cdp, sessionId) {
 }
 
 async function handleReset(dbg, cdp, sessionId) {
-  return await dbg.reset(cdp, sessionId);
+  const result = await dbg.reset(cdp, sessionId);
+  dbg.clearInjectedScripts();
+  return result;
 }
 
 async function handleNeutralize(dbg, cdp, sessionId) {
@@ -587,6 +603,38 @@ async function handleTrace(dbg, cdp, sessionId, args) {
   return out.join('\n');
 }
 
+function extractLogExpr(condition) {
+  if (!condition) return '';
+  const match = condition.match(/^\(console\.log\((.+)\), false\)$/);
+  return match ? match[1] : condition;
+}
+
+async function handleLogpoint(dbg, cdp, sessionId, args) {
+  await ensureEnabled(dbg, cdp, sessionId);
+  const { flags, positional } = parseFlags(args);
+  const url = positional[0];
+  const line = parseInt(positional[1]) - 1;
+  const col = positional[2] ? parseInt(positional[2]) - 1 : 0;
+  const expr = flags.expr || flags.e;
+
+  if (!url || isNaN(line)) throw new Error('Usage: debug logpoint <url> <line> [col] --expr <expression>');
+
+  const logExpr = expr
+    ? `(console.log(${expr}), false)`
+    : `(console.log('[Logpoint L' + ${line + 1} + ']', JSON.stringify({line: ${line + 1}})), false)`;
+
+  const info = await dbg.setBreakpoint(url, line, col, logExpr, true);
+
+  const lines = ['Logpoint set:'];
+  lines.push(`  Breakpoint ID: ${info.breakpointId}`);
+  lines.push(`  URL: ${url}`);
+  lines.push(`  Line: ${line + 1}, Column: ${col + 1}`);
+  lines.push(`  Expression: ${expr || '(default: line number)'}`);
+  lines.push(`  Condition: ${logExpr}`);
+  lines.push(`\nOutput goes to console. Use debug unbreak ${info.breakpointId} to remove.`);
+  return lines.join('\n');
+}
+
 async function handleInject(dbg, cdp, sessionId, args) {
   await ensureEnabled(dbg, cdp, sessionId);
   const code = args[0];
@@ -594,6 +642,7 @@ async function handleInject(dbg, cdp, sessionId, args) {
 
   await cdp.send('Page.enable', {}, sessionId);
   const result = await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: code }, sessionId);
+  dbg.addInjectedScript(result.identifier, code);
   return `Script injected. Identifier: ${result.identifier}\nIt will run before any page script on every load.\nTo remove: debug inject-remove ${result.identifier}`;
 }
 
@@ -604,7 +653,22 @@ async function handleInjectRemove(dbg, cdp, sessionId, args) {
 
   await cdp.send('Page.enable', {}, sessionId);
   await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier }, sessionId);
+  dbg.removeInjectedScript(identifier);
   return `Injected script ${identifier} removed.`;
+}
+
+function handleInjectList(dbg) {
+  const scripts = dbg.getInjectedScripts();
+  if (scripts.length === 0) return 'No injected scripts.';
+
+  const lines = [`Injected scripts (${scripts.length}):`];
+  for (const s of scripts) {
+    const preview = s.source.length > 100 ? s.source.substring(0, 100) + '...' : s.source;
+    lines.push(`  - ID: ${s.identifier}`);
+    lines.push(`    Source: ${preview}`);
+    lines.push(`    Injected: ${new Date(s.timestamp).toLocaleTimeString()}`);
+  }
+  return lines.join('\n');
 }
 
 async function handleDebug({ cdp, sessionId, args, dbg }) {
@@ -634,8 +698,10 @@ async function handleDebug({ cdp, sessionId, args, dbg }) {
     case 'vars': return handleVars(dbg, cdp, sessionId, subArgs);
     case 'eval': return handleEval(dbg, cdp, sessionId, subArgs);
     case 'trace': return handleTrace(dbg, cdp, sessionId, subArgs);
+    case 'logpoint': return handleLogpoint(dbg, cdp, sessionId, subArgs);
     case 'inject': return handleInject(dbg, cdp, sessionId, subArgs);
     case 'inject-remove': return handleInjectRemove(dbg, cdp, sessionId, subArgs);
+    case 'inject-list': return handleInjectList(dbg);
     default:
       return [
         'Debug subcommands:',
@@ -661,8 +727,10 @@ async function handleDebug({ cdp, sessionId, args, dbg }) {
         '  vars [frame-idx]              Show scope variables',
         '  eval <expr> [frame-idx]       Evaluate in paused frame',
         '  trace <func> [options]        Trace function calls (--filter url, --pause)',
-        '  inject <code>                 Inject script before page load',
+        '  logpoint <url> <line> [col]   Set logpoint (--expr expression, no pause)',
+        '  inject <code>                 Inject script before every page load',
         '  inject-remove <id>            Remove injected script',
+        '  inject-list                   List injected scripts',
       ].join('\n');
   }
 }

@@ -37,7 +37,7 @@ Usage: cdp <command> [args]
 
   list                              List open pages (shows unique target prefixes)
   snap  <target>                    Accessibility tree snapshot
-  eval  <target> <expr>             Evaluate JS expression
+  eval  <target> <expr>             Evaluate JS expression [--save <file>] [--binary]
   shot  <target> [file]             Screenshot (default: screenshot-<target>.png in runtime dir); prints coordinate mapping
   html  <target> [selector]         Get HTML (full page or CSS selector)
   nav   <target> <url>              Navigate to URL and wait for load completion
