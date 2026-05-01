@@ -1,4 +1,5 @@
 const MAX_CONSOLE_MESSAGES = 1000;
+const MAX_NAVIGATION_HISTORY = 3;
 const CONSOLE_TYPES = new Set(['log', 'warning', 'error', 'info', 'debug', 'table', 'dir', 'trace', 'startGroup', 'endGroup', 'clear', 'assert', 'profile', 'profileEnd', 'count', 'timeEnd']);
 
 let messages = [];
@@ -8,6 +9,8 @@ let sidRef = null;
 let offConsoleAPICalled = null;
 let offExceptionThrown = null;
 let enabled = false;
+let navigationHistory = [];
+let currentNavUrl = '';
 
 function formatArgValue(arg) {
   if (arg.value !== undefined) return String(arg.value);
@@ -81,12 +84,38 @@ function disable() {
 
 function isEnabled() { return enabled; }
 
-function getMessages(filter, page = 1, size = 20) {
-  let filtered = messages;
+function onNavigated(url) {
+  if (messages.length > 0) {
+    navigationHistory.push({
+      timestamp: Date.now(),
+      url: currentNavUrl,
+      messages: [...messages],
+    });
+    if (navigationHistory.length > MAX_NAVIGATION_HISTORY) {
+      navigationHistory.shift();
+    }
+  }
+  messages = [];
+  currentNavUrl = url || '';
+}
+
+function getMessages(filter, page = 1, size = 20, preserve = false) {
+  let source = messages;
+  if (preserve) {
+    source = [];
+    for (const nav of navigationHistory) {
+      source.push({ separator: true, url: nav.url, timestamp: nav.timestamp });
+      source.push(...nav.messages);
+    }
+    source.push({ separator: true, url: currentNavUrl, timestamp: null });
+    source.push(...messages);
+  }
+
+  let filtered = source.filter(m => !m.separator);
   if (filter && filter !== 'clear' && !filter.startsWith('--') && !/^\d+$/.test(filter)) {
     const typeMap = { warn: 'warning' };
     const targetType = typeMap[filter] || filter;
-    filtered = messages.filter(m => m.type === targetType);
+    filtered = filtered.filter(m => m.type === targetType);
   }
 
   const total = filtered.length;
@@ -94,12 +123,14 @@ function getMessages(filter, page = 1, size = 20) {
   const end = Math.min(start + size, total);
   const pageItems = filtered.slice(start, end);
 
+  const separators = preserve ? source.filter(m => m.separator) : [];
   return {
     messages: pageItems,
     total,
     page,
     size,
     totalPages: Math.ceil(total / size),
+    navigationSeparators: separators,
   };
 }
 
@@ -110,13 +141,17 @@ function getMessageById(id) {
 function clear() {
   const count = messages.length;
   messages = [];
+  navigationHistory = [];
+  currentNavUrl = '';
   msgIdCounter = 1;
   return count;
 }
 
 function reset() {
   messages = [];
+  navigationHistory = [];
+  currentNavUrl = '';
   msgIdCounter = 1;
 }
 
-export { enable, disable, isEnabled, getMessages, getMessageById, clear, reset };
+export { enable, disable, isEnabled, getMessages, getMessageById, clear, reset, onNavigated };
