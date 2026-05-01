@@ -85,6 +85,54 @@ Captures the **viewport only**. Scroll first with `eval` if you need content bel
 
 **Cache limit**: 500 requests (FIFO eviction).
 
+### Debugger (JavaScript debugging)
+
+The `debug` command provides JavaScript debugging capabilities via Chrome's Debugger domain. The debugger is **lazy-enabled** — it activates only when you first use a `debug` command, avoiding unnecessary overhead and anti-debugging detection.
+
+**Anti-debugging handling**: Some websites use `debugger;` statements (often in recursive timers) to prevent DevTools inspection. The debugger handles this in multiple ways:
+1. **Auto-skip**: By default, `debugger;` pauses (reason=`other`, no breakpoint hit) are automatically resumed, so they don't block normal operation.
+2. **Navigation with debugger active**: The debugger stays enabled during navigation — URL breakpoints (`Debugger.setBreakpointByUrl`) automatically survive across navigations (this is a CDP feature). Only XHR breakpoints (`DOMDebugger`) are restored after navigation since Chrome resets them.
+3. **Neutralize**: Optionally use `inject` to override `Function.prototype.constructor` to strip `debugger;` from dynamically created functions.
+
+**Navigation behavior**: Navigation waits for `DOMContentLoaded` (not full `load`), which is more tolerant of `debugger;` anti-debugging. If a breakpoint is hit during page load, navigation returns a message indicating the pause — use `debug status` to inspect and `debug resume` to continue loading.
+
+```bash
+# Script management
+<skill_dir>/scripts/cdp.mjs debug <target> scripts [filter]   # list loaded JS scripts (optional URL filter)
+<skill_dir>/scripts/cdp.mjs debug <target> source <id|url>    # view script source (--startLine, --endLine, --offset, --length)
+<skill_dir>/scripts/cdp.mjs debug <target> save <id|url> <f>  # save script source to file
+<skill_dir>/scripts/cdp.mjs debug <target> search <query>     # search in scripts (--regex, --case, --filter url)
+
+# Breakpoints
+<skill_dir>/scripts/cdp.mjs debug <target> break <url> <line> [col]  # set breakpoint (--cond expr for conditional)
+<skill_dir>/scripts/cdp.mjs debug <target> breaktext <text>          # set breakpoint on code text (--filter url, --nth N)
+<skill_dir>/scripts/cdp.mjs debug <target> breakxhr <pattern>        # set XHR/Fetch breakpoint
+<skill_dir>/scripts/cdp.mjs debug <target> breaks                    # list all breakpoints
+<skill_dir>/scripts/cdp.mjs debug <target> unbreak <id|all>          # remove breakpoint(s)
+<skill_dir>/scripts/cdp.mjs debug <target> unbreakxhr <pattern>      # remove XHR breakpoint
+
+# Execution control
+<skill_dir>/scripts/cdp.mjs debug <target> pause              # pause JS execution
+<skill_dir>/scripts/cdp.mjs debug <target> resume             # resume execution
+<skill_dir>/scripts/cdp.mjs debug <target> stepover           # step over
+<skill_dir>/scripts/cdp.mjs debug <target> stepinto           # step into
+<skill_dir>/scripts/cdp.mjs debug <target> stepout            # step out
+
+# State inspection
+<skill_dir>/scripts/cdp.mjs debug <target> status             # show paused state (call stack, scope vars)
+<skill_dir>/scripts/cdp.mjs debug <target> vars [frame-idx]   # show scope variables
+<skill_dir>/scripts/cdp.mjs debug <target> eval <expr> [idx]  # evaluate expression in paused frame
+
+# Advanced
+<skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls (--filter url, --pause)
+<skill_dir>/scripts/cdp.mjs debug <target> inject <code>      # inject script before every page load
+<skill_dir>/scripts/cdp.mjs debug <target> inject-remove <id> # remove injected script
+```
+
+**Search tips**: `search` automatically skips matches in minified files (lines > 10000 chars). Use `--no-exclude-minified` to include them. Use `--filter url` to narrow results to specific scripts.
+
+**Breakpoint tips**: `breaktext` searches for code text and sets a breakpoint at the matching location — useful when you don't know the exact line number. Use `--nth N` for the Nth occurrence.
+
 ## Coordinates
 
 `shot` saves an image at native resolution: image pixels = CSS pixels × DPR. CDP Input events (`clickxy` etc.) take **CSS pixels**.
@@ -194,12 +242,14 @@ To create a new plugin:
 │   ├── utils.mjs               # Utility functions
 │   ├── cdp-client.mjs          # CDP WebSocket client
 │   ├── command-registry.mjs    # Command registry
-│   └── daemon.mjs              # Per-tab daemon logic
+│   ├── daemon.mjs              # Per-tab daemon logic
+│   └── debugger-context.mjs    # Debugger domain state management
 ├── commands/                   # Built-in commands
 │   ├── eval.mjs                # eval / evalraw
 │   ├── page.mjs                # snap / shot / html / nav
 │   ├── interact.mjs            # click / type / keypress / loadall
 │   ├── network.mjs             # net
+│   ├── debug.mjs               # debug (scripts, breakpoints, stepping, etc.)
 │   └── list.mjs                # list / list_raw
 └── plugins/                    # Plugin directory
     ├── plugin.mjs              # Plugin manager

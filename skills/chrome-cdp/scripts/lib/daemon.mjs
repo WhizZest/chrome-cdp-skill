@@ -9,6 +9,7 @@ import {
 import { sleep, sockPath, resolvePrefix } from './utils.mjs';
 import { CDP, getWsUrl } from './cdp-client.mjs';
 import { getCommandHandler } from './command-registry.mjs';
+import * as dbg from './debugger-context.mjs';
 
 async function runDaemon(targetId) {
   const sp = sockPath(targetId);
@@ -129,7 +130,7 @@ async function runDaemon(targetId) {
       if (cmd === 'stop') return { ok: true, result: '', stopAfter: true };
       const handler = getCommandHandler(cmd);
       if (handler) {
-        const result = await handler({ cdp, sessionId, cachedRequests, requestIdState, args, targetId });
+        const result = await handler({ cdp, sessionId, cachedRequests, requestIdState, args, targetId, dbg });
         return { ok: true, result: result ?? '' };
       }
       return { ok: false, error: `Unknown command: ${cmd}` };

@@ -26,6 +26,7 @@ import './commands/page.mjs';
 import './commands/interact.mjs';
 import './commands/network.mjs';
 import './commands/list.mjs';
+import './commands/debug.mjs';
 
 const USAGE = `cdp - lightweight Chrome DevTools Protocol CLI (no Puppeteer)
 
@@ -60,6 +61,27 @@ Usage: cdp <command> [args]
                                     Optional interval in ms between clicks (default 1500)
   evalraw <target> <method> [json]  Send a raw CDP command; returns JSON result
                                     e.g. evalraw <t> "DOM.getDocument" '{}'
+  debug <target> scripts [filter]   List loaded JS scripts (Debugger domain, lazy-enabled)
+  debug <target> source <id|url>    View script source (--startLine, --endLine, --offset, --length)
+  debug <target> save <id|url> <f>  Save script source to file
+  debug <target> search <query>     Search in scripts (--regex, --case, --filter url)
+  debug <target> break <url> <line> Set breakpoint (--cond expr)
+  debug <target> breaktext <text>   Set breakpoint on code text (--filter url, --nth N)
+  debug <target> breakxhr <pattern> Set XHR/Fetch breakpoint
+  debug <target> breaks             List all breakpoints
+  debug <target> unbreak <id|all>   Remove breakpoint(s)
+  debug <target> unbreakxhr <pat>   Remove XHR breakpoint
+  debug <target> pause              Pause JS execution
+  debug <target> resume             Resume JS execution
+  debug <target> stepover           Step over
+  debug <target> stepinto           Step into
+  debug <target> stepout            Step out
+  debug <target> status             Show paused state (call stack, scope vars)
+  debug <target> vars [frame-idx]   Show scope variables
+  debug <target> eval <expr> [idx]  Evaluate in paused frame
+  debug <target> trace <func>       Trace function calls (--filter url, --pause)
+  debug <target> inject <code>      Inject script before every page load
+  debug <target> inject-remove <id> Remove injected script
   open  [url]                       Open a new tab (default: about:blank)
                                     Note: each new tab triggers a fresh "Allow debugging?" prompt
   stop  [target]                    Stop daemon(s)
