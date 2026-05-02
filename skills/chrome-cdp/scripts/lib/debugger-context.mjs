@@ -124,8 +124,6 @@ async function disable() {
   if (offPaused) { offPaused(); offPaused = null; }
   if (offResumed) { offResumed(); offResumed = null; }
 
-  try { await cdpRef.send('Debugger.disable', {}, sidRef); } catch {}
-
   for (const id of Array.from(breakpoints.keys())) {
     try { await cdpRef.send('Debugger.removeBreakpoint', { breakpointId: id }, sidRef); } catch {}
   }
