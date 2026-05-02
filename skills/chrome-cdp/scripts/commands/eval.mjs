@@ -2,10 +2,10 @@ import { writeFileSync } from 'fs';
 import { registerCommand } from '../lib/command-registry.mjs';
 import { WARN_CDP_METHODS, WARN_HINTS } from '../lib/eval-safety.mjs';
 
-export async function evalStr(cdp, sid, expression, contextId = null) {
+export async function evalStr(cdp, sid, expression, contextId = null, awaitPromise = false) {
   await cdp.send('Runtime.enable', {}, sid);
   const params = {
-    expression, returnByValue: true, awaitPromise: true,
+    expression, returnByValue: true, awaitPromise,
   };
   if (contextId) {
     params.contextId = contextId;
@@ -63,7 +63,7 @@ registerCommand('eval', async ({ cdp, sessionId, args, frameCtx }) => {
 
   const contextId = frameCtx?.getExecutionContextId() || null;
   const actualExpr = binary ? wrapBinaryExpr(expression) : expression;
-  const result = await evalStr(cdp, sessionId, actualExpr, contextId);
+  const result = await evalStr(cdp, sessionId, actualExpr, contextId, true);
 
   if (saveFile) {
     let content;
