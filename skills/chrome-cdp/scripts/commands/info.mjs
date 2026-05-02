@@ -1,7 +1,7 @@
 import { registerCommand } from '../lib/command-registry.mjs';
 import { evalStr } from './eval.mjs';
 
-async function handleInfo({ cdp, sessionId, args, frameCtx }) {
+async function handleInfo({ cdp, sessionId, args, frameCtx, targetId }) {
   const [title, url, dpr, frames] = await Promise.all([
     evalStr(cdp, sessionId, 'document.title').catch(() => 'N/A'),
     evalStr(cdp, sessionId, 'location.href').catch(() => 'N/A'),
@@ -14,6 +14,8 @@ async function handleInfo({ cdp, sessionId, args, frameCtx }) {
     `Title: ${title}`,
     `DPR:   ${dpr}`,
     `Frames:${frames.length > 1 ? ` ${frames.length} (use "frames" to list)` : ' 1 (main only)'}`,
+    `Session: ${sessionId}`,
+    `Target: ${targetId}`,
   ];
   return lines.join('\n');
 }
