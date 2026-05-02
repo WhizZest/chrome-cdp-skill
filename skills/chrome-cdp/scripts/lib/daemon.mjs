@@ -64,6 +64,7 @@ async function runDaemon(targetId) {
   try {
     await cdp.send('Debugger.enable', {}, sessionId);
     await cdp.send('Debugger.setAsyncCallStackDepth', { maxDepth: 8 }, sessionId);
+    try { await cdp.send('Debugger.resume', {}, sessionId); } catch {}
   } catch (e) {
     process.stderr.write(`Daemon: Debugger.enable failed: ${e.message}\n`);
   }
