@@ -224,7 +224,7 @@ describe('network-initiator: initiator subcommand', () => {
 });
 
 describe('network-initiator: detail output includes initiator', () => {
-  testAsync('net <id> JSON output includes initiator field', async () => {
+  testAsync('net <id> --verbose JSON output includes initiator field', async () => {
     const mod = await import(SRC);
     const cachedRequests = makeCachedRequests();
     const requestIdState = { next: 6 };
@@ -232,7 +232,7 @@ describe('network-initiator: detail output includes initiator', () => {
       'Network.getResponseBody': () => ({ body: '{}', base64Encoded: false }),
     });
 
-    const result = await mod.netHandleCommand(cdp, SID, cachedRequests, requestIdState, ['1']);
+    const result = await mod.netHandleCommand(cdp, SID, cachedRequests, requestIdState, ['1', '--verbose']);
     const parsed = JSON.parse(result);
     assert.ok(parsed.initiator);
     assert.equal(parsed.initiator.type, 'script');
@@ -240,7 +240,7 @@ describe('network-initiator: detail output includes initiator', () => {
     assert.equal(parsed.initiator.stack.callFrames.length, 2);
   });
 
-  testAsync('net <id> JSON output has null initiator when absent', async () => {
+  testAsync('net <id> --verbose JSON output has null initiator when absent', async () => {
     const mod = await import(SRC);
     const cachedRequests = makeCachedRequests();
     const requestIdState = { next: 6 };
@@ -248,9 +248,60 @@ describe('network-initiator: detail output includes initiator', () => {
       'Network.getResponseBody': () => ({ body: '{}', base64Encoded: false }),
     });
 
-    const result = await mod.netHandleCommand(cdp, SID, cachedRequests, requestIdState, ['3']);
+    const result = await mod.netHandleCommand(cdp, SID, cachedRequests, requestIdState, ['3', '--verbose']);
     const parsed = JSON.parse(result);
     assert.equal(parsed.initiator, null);
+  });
+
+  testAsync('net <id> default shows status + body without headers', async () => {
+    const mod = await import(SRC);
+    const cachedRequests = makeCachedRequests();
+    const requestIdState = { next: 6 };
+    const cdp = createMockCDP({
+      'Network.getResponseBody': () => ({ body: '{"result":"ok"}', base64Encoded: false }),
+    });
+
+    const result = await mod.netHandleCommand(cdp, SID, cachedRequests, requestIdState, ['1']);
+    assert.ok(result.includes('GET https://example.com/api/data'));
+    assert.ok(result.includes('200'));
+    assert.ok(result.includes('{"result":"ok"}'));
+    assert.ok(!result.includes('"request"'));
+    assert.ok(result.includes('--verbose'));
+  });
+});
+
+describe('network-initiator: list shows initiator hints', () => {
+  testAsync('net list shows script initiator hint', async () => {
+    const mod = await import(SRC);
+    const cachedRequests = makeCachedRequests();
+    const requestIdState = { next: 6 };
+    const cdp = createMockCDP();
+
+    const result = await mod.netHandleCommand(cdp, SID, cachedRequests, requestIdState, []);
+    assert.ok(result.includes('← fetchData @ app.js:43'));
+  });
+
+  testAsync('net list shows parser initiator hint', async () => {
+    const mod = await import(SRC);
+    const cachedRequests = makeCachedRequests();
+    const requestIdState = { next: 6 };
+    const cdp = createMockCDP();
+
+    const result = await mod.netHandleCommand(cdp, SID, cachedRequests, requestIdState, []);
+    assert.ok(result.includes('← parser'));
+  });
+
+  testAsync('net list shows no hint when initiator is null', async () => {
+    const mod = await import(SRC);
+    const cachedRequests = makeCachedRequests();
+    const requestIdState = { next: 6 };
+    const cdp = createMockCDP();
+
+    const result = await mod.netHandleCommand(cdp, SID, cachedRequests, requestIdState, []);
+    const lines = result.split('\n');
+    const line3 = lines.find(l => l.includes('no-initiator'));
+    assert.ok(line3);
+    assert.ok(!line3.includes('←'));
   });
 });
 

@@ -31,6 +31,7 @@ import './commands/console.mjs';
 import './commands/ws.mjs';
 import './commands/intercept.mjs';
 import './commands/frames.mjs';
+import './commands/info.mjs';
 
 const USAGE = `cdp - lightweight Chrome DevTools Protocol CLI (no Puppeteer)
 
@@ -216,9 +217,24 @@ async function main() {
   const cmdArgs = args.slice(1);
 
   if (cmd === 'eval') {
-    const expr = cmdArgs.join(' ');
+    const flagArgs = [];
+    const exprParts = [];
+    for (let i = 0; i < cmdArgs.length; i++) {
+      if (cmdArgs[i] === '--binary') {
+        flagArgs.push('--binary');
+      } else if (cmdArgs[i] === '--save') {
+        if (i + 1 >= cmdArgs.length || !cmdArgs[i + 1]) {
+          console.error('Error: --save requires a filename'); process.exit(1);
+        }
+        flagArgs.push('--save', cmdArgs[++i]);
+      } else {
+        exprParts.push(cmdArgs[i]);
+      }
+    }
+    const expr = exprParts.join(' ');
     if (!expr) { console.error('Error: expression required'); process.exit(1); }
-    cmdArgs[0] = expr;
+    cmdArgs.length = 0;
+    cmdArgs.push(expr, ...flagArgs);
   } else if (cmd === 'type') {
     const text = cmdArgs.join(' ');
     if (!text) { console.error('Error: text required'); process.exit(1); }

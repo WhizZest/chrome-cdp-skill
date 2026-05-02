@@ -58,14 +58,15 @@ describe('integration: daemon lifecycle', () => {
     assert.equal(result.result, '2');
   });
 
-  testAsync('info command returns daemon metadata', async () => {
+  testAsync('info command returns page info', async () => {
     const result = await send('info');
     assert.equal(result.ok, true);
-    const info = JSON.parse(result.result);
-    assert.ok(info.targetId);
-    assert.ok(info.sessionId);
-    assert.ok(info.pid);
-    assert.ok(typeof info.uptime === 'number');
+    assert.ok(result.result.includes('URL:'));
+    assert.ok(result.result.includes('Title:'));
+    assert.ok(result.result.includes('DPR:'));
+    assert.ok(result.result.includes('Frames:'));
+    assert.ok(result.result.includes('Session:'));
+    assert.ok(result.result.includes('Target:'));
   });
 
   testAsync('debug reset works without daemon restart', async () => {
@@ -79,9 +80,11 @@ describe('integration: daemon lifecycle', () => {
 
   testAsync('evalraw blocks dangerous commands', async () => {
     const infoResult = await send('info');
-    const info = JSON.parse(infoResult.result);
+    assert.equal(infoResult.ok, true);
+    const sessionMatch = infoResult.result.match(/Session:\s*(\S+)/);
+    assert.ok(sessionMatch, 'info should contain Session field');
 
-    const result = await send('evalraw', 'Target.detachFromTarget', JSON.stringify({ sessionId: info.sessionId }));
+    const result = await send('evalraw', 'Target.detachFromTarget', JSON.stringify({ sessionId: sessionMatch[1] }));
     assert.equal(result.ok, false);
     assert.ok(result.error.includes('Blocked'));
   });
