@@ -70,8 +70,9 @@ async function runDaemon(targetId) {
 
   cdp.onEvent('Debugger.paused', async (params, msg) => {
     if (msg.sessionId && msg.sessionId !== sessionId) return;
-    if (dbg.isPaused()) return;
+    if (dbg.isEnabled()) return;
     if (params.hitBreakpoints && params.hitBreakpoints.length > 0) return;
+    if (params.reason !== 'other') return;
     try {
       await cdp.send('Debugger.resume', {}, sessionId);
     } catch {}

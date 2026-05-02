@@ -223,6 +223,9 @@ async function main() {
       if (cmdArgs[i] === '--binary') {
         flagArgs.push('--binary');
       } else if (cmdArgs[i] === '--save') {
+        if (i + 1 >= cmdArgs.length || !cmdArgs[i + 1]) {
+          console.error('Error: --save requires a filename'); process.exit(1);
+        }
         flagArgs.push('--save', cmdArgs[++i]);
       } else {
         exprParts.push(cmdArgs[i]);
