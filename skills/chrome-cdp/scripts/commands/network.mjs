@@ -99,7 +99,25 @@ function netListStr(cachedRequests, args) {
     const status = statusStr.padStart(3);
     const type = (req.type || 'other').padEnd(6);
     const url = req.url.length > 80 ? req.url.substring(0, 77) + '...' : req.url;
-    lines.push(`[${req.id}]  ${method} ${url}  ${status}  ${type}`);
+    let initiatorHint = '';
+    if (req.initiator) {
+      if (req.initiator.type === 'script' && req.initiator.stack) {
+        const topFrame = req.initiator.stack.callFrames?.[0];
+        if (topFrame) {
+          const name = topFrame.functionName || '<anon>';
+          const src = topFrame.url ? topFrame.url.split('/').pop() : '';
+          const loc = src ? `:${topFrame.lineNumber + 1}` : '';
+          initiatorHint = `  ← ${name} @ ${src}${loc}`;
+        } else {
+          initiatorHint = '  ← script';
+        }
+      } else if (req.initiator.type === 'parser') {
+        initiatorHint = '  ← parser';
+      } else {
+        initiatorHint = `  ← ${req.initiator.type}`;
+      }
+    }
+    lines.push(`[${req.id}]  ${method} ${url}  ${status}  ${type}${initiatorHint}`);
   }
   return lines.join('\n');
 }
@@ -109,6 +127,7 @@ async function netDetailStr(cdp, sid, cachedRequests, id, options) {
   if (!req) throw new Error(`Request ${id} not found`);
 
   const raw = options.includes('--raw');
+  const verbose = options.includes('--verbose') || options.includes('-v');
   const showBody = options.includes('--body');
   const showRequestBody = options.includes('--request-body');
   const showHeaders = options.includes('--headers');
@@ -164,6 +183,20 @@ async function netDetailStr(cdp, sid, cachedRequests, id, options) {
       request: redactHeaders(req.requestHeaders, raw),
       response: redactHeaders(req.responseHeaders, raw)
     }, null, 2);
+  }
+
+  if (!verbose) {
+    const lines = [`${req.method} ${req.url} → ${req.status} ${req.statusText || ''}`];
+    if (req.mimeType) lines.push(`Content-Type: ${req.mimeType}`);
+    if (base64Encoded && !isTextMimeType(req.mimeType)) {
+      lines.push(`Body: [Base64 encoded, ${responseBody.length} chars]`);
+      lines.push('Use --raw to see raw base64, --verbose for full details.');
+    } else {
+      lines.push(`Body:`);
+      lines.push(responseBody);
+    }
+    lines.push('Use --verbose for headers, request body, and initiator info.');
+    return lines.join('\n');
   }
 
   const responseObj = {

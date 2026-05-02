@@ -31,6 +31,7 @@ import './commands/console.mjs';
 import './commands/ws.mjs';
 import './commands/intercept.mjs';
 import './commands/frames.mjs';
+import './commands/info.mjs';
 
 const USAGE = `cdp - lightweight Chrome DevTools Protocol CLI (no Puppeteer)
 

@@ -64,6 +64,7 @@ Captures the **viewport only** by default. Use `--full` to capture the entire pa
 <skill_dir>/scripts/cdp.mjs keypress <target> <key>         # press a key via Input.dispatchKeyEvent; keys: ArrowUp/Down/Left/Right, Enter, Tab, Escape, Backspace, Delete, Home, End, PageUp/PageDown, Space, F1-F12, or single chars a-z 0-9
 <skill_dir>/scripts/cdp.mjs loadall <target> <selector> [ms]  # click "load more" until gone (default 1500ms between clicks)
 <skill_dir>/scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
+<skill_dir>/scripts/cdp.mjs info    <target>               # show page info (URL, title, DPR, frames)
 <skill_dir>/scripts/cdp.mjs open    [url]                  # open new tab (each triggers Allow prompt)
 <skill_dir>/scripts/cdp.mjs stop    [target]               # stop daemon(s)
 ```
@@ -71,8 +72,9 @@ Captures the **viewport only** by default. Use `--full` to capture the entire pa
 ### Network requests
 
 ```bash
-<skill_dir>/scripts/cdp.mjs net <target>                    # list cached requests
-<skill_dir>/scripts/cdp.mjs net <target> <id>               # view request details (JSON)
+<skill_dir>/scripts/cdp.mjs net <target>                    # list cached requests (with initiator hints)
+<skill_dir>/scripts/cdp.mjs net <target> <id>               # view request: status + response body (default)
+<skill_dir>/scripts/cdp.mjs net <target> <id> --verbose     # full details (headers, request body, initiator)
 <skill_dir>/scripts/cdp.mjs net <target> <id> --body        # response body only
 <skill_dir>/scripts/cdp.mjs net <target> <id> --request-body # request body only
 <skill_dir>/scripts/cdp.mjs net <target> <id> --headers     # request + response headers

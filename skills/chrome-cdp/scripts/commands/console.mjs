@@ -17,7 +17,7 @@ function formatMessageList(result) {
       continue;
     }
     const type = item.type.padEnd(7);
-    const text = item.text.length > 80 ? item.text.substring(0, 77) + '...' : item.text;
+    const text = item.text.length > 200 ? item.text.substring(0, 197) + '...' : item.text;
     const source = item.url
       ? `  ${item.url.split('/').pop()}:${item.lineNumber >= 0 ? item.lineNumber + 1 : '?'}`
       : '';

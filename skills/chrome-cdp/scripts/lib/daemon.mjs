@@ -192,7 +192,6 @@ async function runDaemon(targetId) {
     resetIdle();
     try {
       if (cmd === 'stop') return { ok: true, result: '', stopAfter: true };
-      if (cmd === 'info') return { ok: true, result: JSON.stringify({ targetId, sessionId, pid: process.pid, uptime: Math.round(process.uptime()) }) };
       const handler = getCommandHandler(cmd);
       if (handler) {
         const result = await handler({ cdp, sessionId, cachedRequests, requestIdState, args, targetId, dbg, frameCtx });

@@ -8,7 +8,8 @@ function formatConnectionList(conns) {
   for (const conn of conns) {
     const status = conn.status.padEnd(6);
     const totalBytes = conn.byteCount.sent + conn.byteCount.received;
-    lines.push(`  [${conn.wsId}] ${conn.url}  ${status}  sent: ${conn.frameCount.sent}  recv: ${conn.frameCount.received}  total: ${wsCtx.formatBytes(totalBytes)}`);
+    const url = conn.url.length > 60 ? conn.url.substring(0, 57) + '...' : conn.url;
+    lines.push(`  [${conn.wsId}] ${url}  ${status}  sent: ${conn.frameCount.sent}  recv: ${conn.frameCount.received}  total: ${wsCtx.formatBytes(totalBytes)}`);
   }
   lines.push('Use "ws <wsid>" to view messages.');
   return lines.join('\n');
