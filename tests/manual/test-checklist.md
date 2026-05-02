@@ -16,7 +16,7 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 - [ ] `cdp snap <target>` — returns accessibility tree
 - [ ] `cdp html <target>` — returns page HTML
 - [ ] `cdp nav <target> <url>` — navigates and waits for load
-- [ ] `cdp info <target>` — shows daemon metadata (targetId, sessionId, pid, uptime)
+- [ ] `cdp info <target>` — shows page info (URL, title, DPR, frame count)
 
 ## Interaction
 
@@ -27,11 +27,14 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 
 ## Network
 
-- [ ] `cdp net <target>` — lists cached requests
+- [ ] `cdp net <target>` — lists cached requests (with initiator hints)
 - [ ] `cdp net <target> xhr` — filters XHR/Fetch requests
-- [ ] `cdp net <target> <id> --body` — shows response body
+- [ ] `cdp net <target> <id>` — shows status + response body (default)
+- [ ] `cdp net <target> <id> --verbose` — full details (headers, request body, initiator)
+- [ ] `cdp net <target> <id> --body` — shows response body only
 - [ ] `cdp net <target> <id> --headers` — shows redacted headers
 - [ ] `cdp net <target> <id> --raw` — shows raw (unredacted) headers
+- [ ] `cdp net <target> <id> --initiator` — shows request initiator call stack
 - [ ] `cdp net <target> clear` — clears cache
 
 ## Debugger
@@ -59,7 +62,7 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 - [ ] **`evalraw` warns on dangerous commands**: `evalraw Debugger.disable` → should show warning
 - [ ] **`evalraw` allows safe commands**: `evalraw Target.attachToTarget '{"targetId":"<other-tab>"}'` → should work
 - [ ] **Daemon survives transient errors**: Run invalid commands → verify daemon still responds
-- [ ] **`info` command works**: Verify it returns valid JSON with targetId, sessionId, pid, uptime
+- [ ] **`info` command works**: Verify it shows URL, title, DPR, and frame count
 
 ## Anti-Debugging
 

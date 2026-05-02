@@ -55,6 +55,7 @@ The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux,
 <skill_dir>/scripts/cdp.mjs keypress <target> <key>           # press a key (ArrowUp/Down/Left/Right, Enter, Tab, Escape, Backspace, Delete, Home, End, PageUp/PageDown, Space, F1-F12, a-z, 0-9)
 <skill_dir>/scripts/cdp.mjs loadall <target> "selector"       # click "load more" until gone
 <skill_dir>/scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
+<skill_dir>/scripts/cdp.mjs info   <target>                   # page info (URL, title, DPR, frames)
 <skill_dir>/scripts/cdp.mjs open   [url]                      # open new tab (triggers Allow prompt)
 <skill_dir>/scripts/cdp.mjs stop   [target]                   # stop daemon(s)
 ```
@@ -161,7 +162,7 @@ Lists all frames including nested iframes with frame ID, URL, and nesting depth.
 ### Daemon info
 
 ```bash
-<skill_dir>/scripts/cdp.mjs info <target>                    # daemon metadata (targetId, sessionId, pid, uptime)
+<skill_dir>/scripts/cdp.mjs info <target>                    # page info (URL, title, DPR, frame count)
 ```
 
 ### evalraw safety
