@@ -1,7 +1,10 @@
+import { findDebuggerStatements, replaceDebuggerStatements, containsDebugger } from './neutralize-utils.mjs';
+
 const scripts = new Map();
 const urlToScripts = new Map();
 const breakpoints = new Map();
 const xhrBreakpoints = new Set();
+const neutralizeBreakpoints = new Set();
 let pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
 let enabled = false;
 let cdpRef = null;
@@ -131,6 +134,7 @@ async function disable() {
     try { await cdpRef.send('DOMDebugger.removeXHRBreakpoint', { url }, sidRef); } catch {}
   }
 
+  neutralizeBreakpoints.clear();
   scripts.clear();
   urlToScripts.clear();
   pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };
@@ -482,6 +486,74 @@ async function removeNeutralizeDebuggerStatements(cdp, sessionId) {
   antiDebugScriptId = null;
 }
 
+async function neutralizeLoadedScripts() {
+  if (!cdpRef) throw new Error('Debugger not enabled');
+
+  const allScripts = getScripts();
+  let checked = 0;
+  let modified = 0;
+  let fallbackBreakpoints = 0;
+  const errors = [];
+
+  if (allScripts.length === 0) {
+    return { checked, modified, fallbackBreakpoints, errors, noScripts: true };
+  }
+
+  for (const script of allScripts) {
+    if (!script.url) continue;
+
+    let source;
+    try {
+      const result = await getScriptSource(script.scriptId);
+      source = result.scriptSource;
+    } catch {
+      continue;
+    }
+
+    if (!source || !containsDebugger(source)) continue;
+
+    const locations = findDebuggerStatements(source);
+    if (locations.length === 0) continue;
+    checked++;
+
+    const newSource = replaceDebuggerStatements(source);
+    try {
+      await cdpRef.send('Debugger.setScriptSource', {
+        scriptId: script.scriptId,
+        scriptSource: newSource,
+      }, sidRef);
+      modified++;
+    } catch {
+      for (const loc of locations) {
+        try {
+          const params = {
+            url: script.url,
+            lineNumber: loc.line,
+            columnNumber: loc.column,
+            condition: 'false',
+          };
+          const result = await cdpRef.send('Debugger.setBreakpointByUrl', params, sidRef);
+          neutralizeBreakpoints.add(result.breakpointId);
+          fallbackBreakpoints++;
+        } catch (e) {
+          errors.push(`${script.url}:${loc.line + 1}: ${e.message}`);
+        }
+      }
+    }
+  }
+
+  return { checked, modified, fallbackBreakpoints, errors };
+}
+
+async function removeNeutralizeBreakpoints() {
+  for (const id of neutralizeBreakpoints) {
+    try { await cdpRef.send('Debugger.removeBreakpoint', { breakpointId: id }, sidRef); } catch {}
+  }
+  const count = neutralizeBreakpoints.size;
+  neutralizeBreakpoints.clear();
+  return count;
+}
+
 export {
   enable, disable, reset, isEnabled,
   getScripts, getScriptsByUrl, getScriptsByUrlPattern, getScriptById,
@@ -494,5 +566,6 @@ export {
   getScopeVariables, evaluateOnCallFrame,
   setSkipDebuggerStatements,
   neutralizeDebuggerStatements, removeNeutralizeDebuggerStatements,
+  neutralizeLoadedScripts, removeNeutralizeBreakpoints,
   addInjectedScript, removeInjectedScript, getInjectedScripts, clearInjectedScripts,
 };

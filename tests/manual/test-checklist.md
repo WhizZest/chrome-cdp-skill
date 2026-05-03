@@ -67,8 +67,10 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 ## Anti-Debugging
 
 - [ ] **Auto-skip**: Navigate to page with `debugger;` → should not block (auto-resumed)
-- [ ] **Neutralize**: `debug <target> neutralize` → navigate to page with `debugger;` → should not pause at all
-- [ ] **Neutralize remove**: `debug <target> neutralize-remove` → `debugger;` statements resume auto-skip behavior
+- [ ] **Neutralize (first enable)**: `debug <target> neutralize` on a page where debugger was just lazy-enabled → should show "No scripts available for scanning" + page-load hook active
+- [ ] **Neutralize (after reload)**: Reload page → `debug <target> neutralize` → should show "Loaded scripts: N checked, M modified" (or 0 modified if debugger is in strings)
+- [ ] **Neutralize remove**: `debug <target> neutralize-remove` → page-load hook removed, fallback breakpoints cleaned
+- [ ] **Neutralize + navigate**: `debug <target> neutralize` → navigate to page with `debugger;` → should not pause at all (page-load hook intercepts)
 
 ## Navigation with Debugger
 

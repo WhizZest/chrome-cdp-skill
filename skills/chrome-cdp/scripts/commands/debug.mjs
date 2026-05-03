@@ -371,12 +371,27 @@ async function handleReset(dbg, cdp, sessionId) {
 async function handleNeutralize(dbg, cdp, sessionId) {
   await ensureEnabled(dbg, cdp, sessionId);
   const id = await dbg.neutralizeDebuggerStatements(cdp, sessionId);
-  return `Anti-debugger neutralization injected (id: ${id}). New pages will have debugger; statements stripped.`;
+  const loaded = await dbg.neutralizeLoadedScripts();
+  const parts = [`Anti-debugger neutralization active (page-hook: ${id}).`];
+  if (loaded.noScripts) {
+    parts.push('No scripts available for scanning (debugger was just enabled). Page-load hook will handle future navigations.');
+  } else if (loaded.checked > 0) {
+    parts.push(`Loaded scripts: ${loaded.checked} checked, ${loaded.modified} modified, ${loaded.fallbackBreakpoints} fallback breakpoints.`);
+  }
+  if (loaded.errors.length > 0) {
+    parts.push(`Errors: ${loaded.errors.join('; ')}`);
+  }
+  return parts.join(' ');
 }
 
 async function handleNeutralizeRemove(dbg, cdp, sessionId) {
   await dbg.removeNeutralizeDebuggerStatements(cdp, sessionId);
-  return 'Anti-debugger neutralization removed.';
+  const bpCount = await dbg.removeNeutralizeBreakpoints();
+  const parts = ['Anti-debugger neutralization removed (page-hook).'];
+  if (bpCount > 0) {
+    parts.push(`${bpCount} fallback breakpoint(s) cleaned.`);
+  }
+  return parts.join(' ');
 }
 
 async function handleStep(dbg, cdp, sessionId, direction) {
@@ -730,7 +745,7 @@ async function handleDebug({ cdp, sessionId, args, dbg }) {
         '  pause                         Pause execution',
         '  resume                        Resume execution',
         '  reset                         Reset debugger state (re-enable, restore breakpoints)',
-        '  neutralize                    Strip debugger; statements from new pages',
+        '  neutralize                    Strip debugger; statements from all pages (new + loaded)',
         '  neutralize-remove             Remove debugger; neutralization',
         '  stepover                      Step over',
         '  stepinto                      Step into',

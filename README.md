@@ -105,7 +105,7 @@ The `debug` command provides full JavaScript debugging via Chrome's Debugger dom
 
 **Anti-debugging**: Some websites use `debugger;` statements to block DevTools. The debugger handles this in multiple ways:
 1. **Auto-skip**: `debugger;` pauses are automatically resumed by default
-2. **Neutralize**: `debug <target> neutralize` strips `debugger;` from dynamically created functions — more effective for heavy anti-debugging (e.g., WeChat Reading)
+2. **Neutralize**: `debug <target> neutralize` works in two layers — (a) injects a page-load hook that strips `debugger;` from dynamically created functions on future navigations, and (b) scans already-loaded scripts and replaces `debugger;` with `void 0;` via `Debugger.setScriptSource` (falls back to conditional breakpoints if the script is on the stack). More effective than auto-skip alone for heavy anti-debugging (e.g., WeChat Reading). Use `neutralize-remove` to undo.
 3. **Reset**: `debug <target> reset` recovers from inconsistent state (after `Debugger.disable`, lost breakpoints, etc.) — **no daemon restart or Chrome "Allow" click needed**
 
 **Navigation**: URL breakpoints survive across navigations (CDP feature). Code and XHR breakpoints are restored after navigation. Navigation waits for `DOMContentLoaded` rather than full `load`, which is more tolerant of `debugger;` anti-debugging.
