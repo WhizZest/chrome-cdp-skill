@@ -134,7 +134,7 @@ async function disable() {
     try { await cdpRef.send('DOMDebugger.removeXHRBreakpoint', { url }, sidRef); } catch {}
   }
 
-  neutralizeBreakpoints.clear();
+  await removeNeutralizeBreakpoints();
   scripts.clear();
   urlToScripts.clear();
   pausedState = { isPaused: false, callFrames: [], reason: null, hitBreakpoints: [] };

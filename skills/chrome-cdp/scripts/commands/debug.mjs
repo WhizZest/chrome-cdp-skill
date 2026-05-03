@@ -385,6 +385,7 @@ async function handleNeutralize(dbg, cdp, sessionId) {
 }
 
 async function handleNeutralizeRemove(dbg, cdp, sessionId) {
+  await ensureEnabled(dbg, cdp, sessionId);
   await dbg.removeNeutralizeDebuggerStatements(cdp, sessionId);
   const bpCount = await dbg.removeNeutralizeBreakpoints();
   const parts = ['Anti-debugger neutralization removed (page-hook).'];
