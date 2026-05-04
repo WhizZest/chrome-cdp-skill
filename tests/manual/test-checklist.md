@@ -72,6 +72,17 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 - [ ] **Neutralize remove**: `debug <target> neutralize-remove` → page-load hook removed, fallback breakpoints cleaned
 - [ ] **Neutralize + navigate**: `debug <target> neutralize` → navigate to page with `debugger;` → should not pause at all (page-load hook intercepts)
 
+## Performance Trace
+
+- [ ] **Perf start**: `debug <target> perf start` → should show "Performance trace started"
+- [ ] **Perf status**: `debug <target> perf status` → should show elapsed time and event count
+- [ ] **Perf stop**: `debug <target> perf stop` → should show report with Top N functions
+- [ ] **Perf stop --top 5**: `debug <target> perf stop --top 5` → should show exactly 5 functions
+- [ ] **Perf stop without start**: `debug <target> perf stop` without prior start → should show error
+- [ ] **Perf start twice**: `debug <target> perf start` twice → should show error "already active"
+- [ ] **Perf with network**: Start perf → trigger a fetch/XHR → stop → report should show network timeline
+- [ ] **Perf with neutralize**: `debug <target> neutralize` → `debug <target> perf start` → should work on anti-debugging sites
+
 ## Navigation with Debugger
 
 - [ ] **Breakpoints survive navigation**: Set breakpoint → navigate → verify breakpoint still listed

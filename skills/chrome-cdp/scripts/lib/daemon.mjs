@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs';
+import { readFileSync, unlinkSync, existsSync } from 'fs';
 import { spawn } from 'child_process';
 import net from 'net';
 import {
@@ -14,6 +14,7 @@ import * as consoleCtx from './console-context.mjs';
 import * as wsCtx from './websocket-context.mjs';
 import * as interceptCtx from './intercept-context.mjs';
 import * as frameCtx from './frame-context.mjs';
+import * as traceCtx from './trace-context.mjs';
 
 async function runDaemon(targetId) {
   const sp = sockPath(targetId);
@@ -170,6 +171,16 @@ async function runDaemon(targetId) {
   cdp.onEvent('Page.frameNavigated', (params) => {
     if (params.frame && !params.frame.parentId) {
       consoleCtx.onNavigated(params.frame.url);
+    }
+  });
+
+  cdp.onEvent('Tracing.dataCollected', (params) => {
+    traceCtx.pushEvents(params.value);
+  });
+
+  cdp.onEvent('Tracing.bufferUsage', (params) => {
+    if (params.percentFull > 80) {
+      process.stderr.write(`[trace] Buffer ${params.percentFull}% full — events may be lost\n`);
     }
   });
   cdp.onClose(() => shutdown());

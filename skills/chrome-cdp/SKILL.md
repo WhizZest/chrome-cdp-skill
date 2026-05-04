@@ -205,6 +205,9 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 <skill_dir>/scripts/cdp.mjs debug <target> inject <code>      # inject script before every page load
 <skill_dir>/scripts/cdp.mjs debug <target> inject-remove <id> # remove injected script
 <skill_dir>/scripts/cdp.mjs debug <target> inject-list        # list all injected scripts
+<skill_dir>/scripts/cdp.mjs debug <target> perf start          # start performance trace recording
+<skill_dir>/scripts/cdp.mjs debug <target> perf stop [--top N] # stop recording and show analysis report
+<skill_dir>/scripts/cdp.mjs debug <target> perf status         # show current recording status
 ```
 
 **Search tips**: `search` automatically skips matches in minified files (lines > 10000 chars). Use `--no-exclude-minified` to include them. Use `--filter url` to narrow results to specific scripts.
@@ -218,6 +221,12 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 **Trace tips**: `trace` sets a conditional breakpoint that logs function calls without pausing (use `--pause` to pause on call). Enhanced options:
 - `--log-this`: Also log the `this` context when the function is called (serialized, functions shown as `[Function]`)
 - `--trace-id <id>`: Custom identifier in the log output (default: function name). Useful when tracing multiple functions to distinguish calls
+
+**Perf tips**: `perf` uses CDP Tracing to record JS execution and network activity, then generates a human-readable report. Useful when you don't know function names (e.g., obfuscated bundles) — it shows which functions consume the most CPU time. Workflow:
+1. `debug <target> perf start` — start recording
+2. Perform actions on the page (click buttons, trigger requests)
+3. `debug <target> perf stop [--top N]` — stop and view report
+Use `perf status` to check recording progress between steps. If the page has anti-debugging, run `neutralize` first.
 
 ## Coordinates
 
