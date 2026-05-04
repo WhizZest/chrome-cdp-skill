@@ -45,11 +45,13 @@ Captures the **viewport only** by default. Use `--full` to capture the entire pa
 ### Evaluate JavaScript
 
 ```bash
-<skill_dir>/scripts/cdp.mjs eval <target> <expr> [--save <file>] [--binary]
+<skill_dir>/scripts/cdp.mjs eval <target> <expr> [--save <file>] [--binary] [--frame <N>]
 ```
 
 - `--save <file>`: Write result to a local file instead of returning it
 - `--binary`: Treat result as binary data (ArrayBuffer/TypedArray). Auto-converts to base64, decodes on `--save`
+- `--frame <N>`: Evaluate in call frame N when paused (default: 0). Ignored when not paused.
+- **Paused behavior**: When execution is paused (e.g. at a breakpoint), `eval` automatically uses `Debugger.evaluateOnCallFrame` to access local variables in the paused scope. `--binary` is not supported while paused.
 
 > **Watch out:** avoid index-based selection (`querySelectorAll(...)[i]`) across multiple `eval` calls when the DOM can change between them (e.g. after clicking Ignore, card indices shift). Collect all data in one `eval` or use stable selectors.
 
@@ -195,7 +197,7 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 # State inspection
 <skill_dir>/scripts/cdp.mjs debug <target> status             # show paused state (call stack, scope vars)
 <skill_dir>/scripts/cdp.mjs debug <target> vars [frame-idx]   # show scope variables
-<skill_dir>/scripts/cdp.mjs debug <target> eval <expr> [idx]  # evaluate expression in paused frame
+<skill_dir>/scripts/cdp.mjs debug <target> eval <expr> [idx] [--save <file>]  # evaluate expression in paused frame
 
 # Advanced
 <skill_dir>/scripts/cdp.mjs debug <target> trace <func>       # trace function calls (--filter url, --pause, --log-this, --trace-id <id>)

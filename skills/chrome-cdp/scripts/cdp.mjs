@@ -227,6 +227,11 @@ async function main() {
           console.error('Error: --save requires a filename'); process.exit(1);
         }
         flagArgs.push('--save', cmdArgs[++i]);
+      } else if (cmdArgs[i] === '--frame') {
+        if (i + 1 >= cmdArgs.length || !cmdArgs[i + 1]) {
+          console.error('Error: --frame requires a frame index'); process.exit(1);
+        }
+        flagArgs.push('--frame', cmdArgs[++i]);
       } else {
         exprParts.push(cmdArgs[i]);
       }
