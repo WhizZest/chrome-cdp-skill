@@ -82,8 +82,8 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 - [ ] **Neutralize remove**: `debug <target> neutralize-remove` → page-load hook removed, fallback breakpoints cleaned
 - [ ] **Neutralize + navigate**: `debug <target> neutralize` → navigate to page with `debugger;` → should not pause at all (page-load hook intercepts)
 - [ ] **Neutralize covers 4 paths**: Verify page-load hook strips `debugger;` from `Function`, `eval`, `setTimeout`, `setInterval`
-- [ ] **Neutralize + debugger full flow** (WeRead): neutralize → pause → eval → vars → resume → all work without freeze
-- [ ] **Neutralize + debugger stability** (WeRead): neutralize → pause → wait 10s → eval still works (no pause/resume loop)
+- [ ] **Neutralize + debugger full flow** (WeRead): neutralize → **reload page** → pause → eval → vars → resume → all work without freeze
+- [ ] **Neutralize + debugger stability** (WeRead): neutralize → **reload page** → pause → resume → wait 10s → eval still works (no pause/resume loop)
 - [ ] **WeRead eval without debugger**: `eval <target> location.href` on WeRead page → returns URL without freezing
 - [ ] **WeRead plugin capture-book**: Full capture-book flow works without anti-debugging interference
 - [ ] **WeRead plugin extract-chapter**: Full extract-chapter flow works without anti-debugging interference
