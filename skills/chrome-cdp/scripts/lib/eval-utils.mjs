@@ -43,7 +43,7 @@ export function handleSaveResult(result, saveFile, binary) {
   try {
     writeFileSync(saveFile, content);
   } catch (e) {
-    return `Failed to save to ${saveFile}: ${e.message}`;
+    throw new Error(`Failed to save to ${saveFile}: ${e.message}`);
   }
   return `Saved to ${saveFile} (${byteSize} bytes)`;
 }

@@ -101,4 +101,8 @@ describe('handleSaveResult', () => {
   it('throws on missing __cdpBinary flag', () => {
     assert.throws(() => handleSaveResult('{"foo":"bar"}', '/tmp/test.bin', true), /Page did not return binary data/);
   });
+
+  it('throws on write failure', () => {
+    assert.throws(() => handleSaveResult('data', '/nonexistent/path/file.txt', false), /Failed to save to/);
+  });
 });
