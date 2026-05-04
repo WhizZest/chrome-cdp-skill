@@ -34,7 +34,10 @@ export async function stop(cdp, sessionId, { topN = 10, scripts = new Map() } = 
   }
 
   const tracingComplete = new Promise((resolve) => {
-    cdp.onEvent('Tracing.tracingComplete', (params) => resolve(params));
+    const off = cdp.onEvent('Tracing.tracingComplete', (params) => {
+      off();
+      resolve(params);
+    });
   });
   await cdp.send('Tracing.end', {}, sessionId);
   await tracingComplete;

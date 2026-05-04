@@ -22,9 +22,13 @@ function resolveFullLocation(scriptId, lineNumber, scripts) {
   return loc;
 }
 
+function makeFuncKey(fnName, scriptId, lineNumber, columnNumber) {
+  return `${fnName}::${scriptId || '?'}:${lineNumber ?? '?'}:${columnNumber ?? '?'}`;
+}
+
 function aggregateFunctionCalls(events, baseTs) {
   const funcMap = new Map();
-  const beginStack = [];
+  const stacksByTid = new Map();
 
   for (const evt of events) {
     if (evt.name !== 'FunctionCall') continue;
@@ -34,7 +38,8 @@ function aggregateFunctionCalls(events, baseTs) {
     if (!fnName) continue;
 
     if (evt.ph === 'X' && evt.dur != null) {
-      let entry = funcMap.get(fnName);
+      const key = makeFuncKey(fnName, data.scriptId, data.lineNumber, data.columnNumber);
+      let entry = funcMap.get(key);
       if (!entry) {
         entry = {
           functionName: fnName,
@@ -45,19 +50,29 @@ function aggregateFunctionCalls(events, baseTs) {
           columnNumber: data.columnNumber,
           firstSeen: evt.ts,
         };
-        funcMap.set(fnName, entry);
+        funcMap.set(key, entry);
       }
       entry.totalTime += evt.dur;
       entry.callCount++;
       if (evt.ts < entry.firstSeen) entry.firstSeen = evt.ts;
     } else if (evt.ph === 'B') {
-      beginStack.push({ fnName, ts: evt.ts, scriptId: data.scriptId, lineNumber: data.lineNumber, columnNumber: data.columnNumber });
+      const tid = evt.tid;
+      let stack = stacksByTid.get(tid);
+      if (!stack) {
+        stack = [];
+        stacksByTid.set(tid, stack);
+      }
+      stack.push({ fnName, ts: evt.ts, scriptId: data.scriptId, lineNumber: data.lineNumber, columnNumber: data.columnNumber });
     } else if (evt.ph === 'E') {
-      for (let i = beginStack.length - 1; i >= 0; i--) {
-        if (beginStack[i].fnName === fnName) {
-          const begin = beginStack.splice(i, 1)[0];
+      const tid = evt.tid;
+      const stack = stacksByTid.get(tid);
+      if (!stack) continue;
+      for (let i = stack.length - 1; i >= 0; i--) {
+        if (stack[i].fnName === fnName) {
+          const begin = stack.splice(i, 1)[0];
           const dur = evt.ts - begin.ts;
-          let entry = funcMap.get(fnName);
+          const key = makeFuncKey(fnName, begin.scriptId, begin.lineNumber, begin.columnNumber);
+          let entry = funcMap.get(key);
           if (!entry) {
             entry = {
               functionName: fnName,
@@ -68,7 +83,7 @@ function aggregateFunctionCalls(events, baseTs) {
               columnNumber: begin.columnNumber,
               firstSeen: begin.ts,
             };
-            funcMap.set(fnName, entry);
+            funcMap.set(key, entry);
           }
           entry.totalTime += dur;
           entry.callCount++;
@@ -120,27 +135,40 @@ function extractNetworkEvents(events, baseTs) {
   return netEvents;
 }
 
-function correlateNetworkWithFunctions(netEvents, funcList, baseTs) {
+function correlateNetworkWithFunctions(netEvents, traceEvents, baseTs) {
   const hints = [];
   for (const net of netEvents) {
     if (!net.endTs) continue;
     const netStart = net.startTs;
     const netEnd = net.endTs;
 
-    const nearby = funcList
-      .filter(f => {
-        const fStart = f.firstSeen;
-        return fStart >= netStart - 50_000 && fStart <= netEnd + 50_000;
-      })
-      .sort((a, b) => b.totalTime - a.totalTime)
+    const nearby = new Map();
+    for (const evt of traceEvents) {
+      if (evt.name !== 'FunctionCall') continue;
+      const data = evt.args?.data;
+      if (!data?.functionName) continue;
+      if (evt.ts < netStart - 50_000 || evt.ts > netEnd + 50_000) continue;
+
+      const fnName = data.functionName;
+      const existing = nearby.get(fnName);
+      if (existing) {
+        existing.count++;
+        existing.totalDur += (evt.dur || 0);
+      } else {
+        nearby.set(fnName, { functionName: fnName, count: 1, totalDur: evt.dur || 0 });
+      }
+    }
+
+    const sorted = [...nearby.values()]
+      .sort((a, b) => b.totalDur - a.totalDur)
       .slice(0, 3);
 
-    if (nearby.length > 0) {
+    if (sorted.length > 0) {
       hints.push({
         idx: net.idx,
         url: net.url,
         method: net.method,
-        functions: nearby.map(f => f.functionName),
+        functions: sorted.map(f => f.functionName),
       });
     }
   }
@@ -162,9 +190,15 @@ export function analyzeTrace(traceEvents, { topN = 10, scripts = new Map() } = {
   const netEvents = extractNetworkEvents(traceEvents, baseTs);
   netEvents.sort((a, b) => a.startTs - b.startTs);
 
-  const correlations = correlateNetworkWithFunctions(netEvents, funcList, baseTs);
+  const correlations = correlateNetworkWithFunctions(netEvents, traceEvents, baseTs);
 
-  const lastReal = [...traceEvents].reverse().find(e => e.cat !== '__metadata' && e.ts > 0);
+  const lastReal = (() => {
+    for (let i = traceEvents.length - 1; i >= 0; i--) {
+      const e = traceEvents[i];
+      if (e.cat !== '__metadata' && e.ts > 0) return e;
+    }
+    return null;
+  })();
   const lastTs = lastReal ? lastReal.ts : baseTs;
   const totalDuration = lastTs - baseTs;
 
