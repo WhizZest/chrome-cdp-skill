@@ -101,6 +101,9 @@ The `debug` command provides full JavaScript debugging via Chrome's Debugger dom
 <skill_dir>/scripts/cdp.mjs debug <target> inject <code>      # inject script before page load
 <skill_dir>/scripts/cdp.mjs debug <target> inject-remove <id> # remove injected script
 <skill_dir>/scripts/cdp.mjs debug <target> inject-list        # list injected scripts
+<skill_dir>/scripts/cdp.mjs debug <target> perf start          # start performance trace recording
+<skill_dir>/scripts/cdp.mjs debug <target> perf stop [--top N] # stop recording and show analysis report
+<skill_dir>/scripts/cdp.mjs debug <target> perf status         # show current recording status
 ```
 
 **Anti-debugging**: Some websites use `debugger;` statements to block DevTools. The debugger handles this in multiple ways:

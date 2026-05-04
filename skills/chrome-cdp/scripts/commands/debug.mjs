@@ -1,5 +1,6 @@
 import { writeFileSync } from 'fs';
 import { registerCommand } from '../lib/command-registry.mjs';
+import * as traceCtx from '../lib/trace-context.mjs';
 
 async function ensureEnabled(dbg, cdp, sessionId) {
   if (!dbg.isEnabled()) {
@@ -699,6 +700,42 @@ function handleInjectList(dbg) {
   return lines.join('\n');
 }
 
+async function handlePerfStart(dbg, cdp, sessionId) {
+  await ensureEnabled(dbg, cdp, sessionId);
+  await traceCtx.start(cdp, sessionId);
+  return 'Performance trace started. Perform actions, then run: debug perf stop';
+}
+
+async function handlePerfStop(dbg, cdp, sessionId, args) {
+  await ensureEnabled(dbg, cdp, sessionId);
+  const topIdx = args.indexOf('--top');
+  const topN = (topIdx >= 0 && args[topIdx + 1])
+    ? parseInt(args[topIdx + 1], 10)
+    : 10;
+  if (isNaN(topN) || topN < 1) {
+    return 'Invalid --top value. Must be a positive number.';
+  }
+  const scripts = new Map(dbg.getScripts().map(s => [s.scriptId, s]));
+  const report = await traceCtx.stop(cdp, sessionId, { topN, scripts });
+  return report;
+}
+
+async function handlePerfStatus(dbg, cdp, sessionId) {
+  return traceCtx.status();
+}
+
+async function handlePerfDispatch(dbg, cdp, sessionId, args) {
+  const action = args[0];
+  const rest = args.slice(1);
+  switch (action) {
+    case 'start':  return handlePerfStart(dbg, cdp, sessionId);
+    case 'stop':   return handlePerfStop(dbg, cdp, sessionId, rest);
+    case 'status': return handlePerfStatus(dbg, cdp, sessionId);
+    default:
+      return 'Usage: debug perf <start|stop|status> [--top N]';
+  }
+}
+
 async function handleDebug({ cdp, sessionId, args, dbg }) {
   const subcmd = args[0];
   const subArgs = args.slice(1);
@@ -730,6 +767,7 @@ async function handleDebug({ cdp, sessionId, args, dbg }) {
     case 'inject': return handleInject(dbg, cdp, sessionId, subArgs);
     case 'inject-remove': return handleInjectRemove(dbg, cdp, sessionId, subArgs);
     case 'inject-list': return handleInjectList(dbg);
+    case 'perf': return handlePerfDispatch(dbg, cdp, sessionId, subArgs);
     default:
       return [
         'Debug subcommands:',
@@ -759,6 +797,9 @@ async function handleDebug({ cdp, sessionId, args, dbg }) {
         '  inject <code>                 Inject script before every page load',
         '  inject-remove <id>            Remove injected script',
         '  inject-list                   List injected scripts',
+        '  perf start                    Start performance trace recording',
+        '  perf stop [--top N]           Stop recording and show analysis report',
+        '  perf status                   Show current recording status',
       ].join('\n');
   }
 }
