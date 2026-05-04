@@ -461,16 +461,46 @@ async function neutralizeDebuggerStatements(cdp, sessionId) {
   if (antiDebugScriptId) return antiDebugScriptId;
   const code = `
 (function() {
-  var _constructor = Function.prototype.constructor;
-  Function.prototype.constructor = function() {
-    if (arguments && arguments.length > 0 && typeof arguments[0] === 'string') {
-      if (arguments[0].indexOf('debugger') !== -1) {
-        arguments[0] = arguments[0].replace(/debugger/g, '');
-      }
+  var _Function = Function.prototype.constructor;
+  var _eval = window.eval;
+  var _setTimeout = window.setTimeout;
+  var _setInterval = window.setInterval;
+
+  var neutralize = function(s) {
+    if (typeof s === 'string' && s.indexOf('debugger') !== -1) {
+      return s.replace(/\\bdebugger\\b/g, '');
     }
-    return _constructor.apply(this, arguments);
+    return s;
   };
-  Function.prototype.constructor.toString = function() { return 'function Function() { [native code] }'; };
+
+  Function.prototype.constructor = function() {
+    if (arguments.length > 0) { arguments[0] = neutralize(arguments[0]); }
+    return _Function.apply(this, arguments);
+  };
+  Function.prototype.constructor.toString = function() {
+    return 'function Function() { [native code] }';
+  };
+
+  window.eval = function(s) {
+    return _eval.call(this, neutralize(s));
+  };
+  window.eval.toString = function() {
+    return 'function eval() { [native code] }';
+  };
+
+  window.setTimeout = function(cb, delay) {
+    return _setTimeout.call(this, neutralize(cb), delay);
+  };
+  window.setTimeout.toString = function() {
+    return 'function setTimeout() { [native code] }';
+  };
+
+  window.setInterval = function(cb, delay) {
+    return _setInterval.call(this, neutralize(cb), delay);
+  };
+  window.setInterval.toString = function() {
+    return 'function setInterval() { [native code] }';
+  };
 })();
 `;
   const result = await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: code }, sessionId);
