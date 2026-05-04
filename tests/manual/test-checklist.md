@@ -55,6 +55,16 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 - [ ] `cdp debug <target> stepinto` — steps into
 - [ ] `cdp debug <target> stepout` — steps out
 
+## Eval Paused Frame
+
+- [ ] **Eval while paused**: Set breakpoint → trigger → `eval <target> "localVar"` → should return local variable value
+- [ ] **Eval --frame while paused**: `eval <target> "expr" --frame 1` → should evaluate in caller frame
+- [ ] **Eval --frame out of range**: `eval <target> "expr" --frame 99` → should error with valid range
+- [ ] **Eval --binary while paused**: `eval <target> "expr" --binary` while paused → should error "not supported while paused"
+- [ ] **Eval --save while paused**: `eval <target> "localVar" --save out.txt` while paused → should save to file
+- [ ] **debug eval --save**: `debug <target> eval "expr" --save out.txt` → should save to file
+- [ ] **Eval not paused**: `eval <target> "1+1"` when not paused → should work normally (Runtime.evaluate)
+
 ## Daemon Stability (Critical)
 
 - [ ] **No restart needed after `debug reset`**: Run `evalraw Debugger.disable` → `debug reset` → verify breakpoints restored

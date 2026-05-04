@@ -1,6 +1,7 @@
 import { writeFileSync } from 'fs';
 import { registerCommand } from '../lib/command-registry.mjs';
 import * as traceCtx from '../lib/trace-context.mjs';
+import { handleSaveResult } from '../lib/eval-utils.mjs';
 
 async function ensureEnabled(dbg, cdp, sessionId) {
   if (!dbg.isEnabled()) {
@@ -15,7 +16,7 @@ function parseFlags(args) {
     'startLine', 'endLine', 'offset', 'length', 'max',
     'filter', 'cond', 'condition', 'nth', 'frame',
     'regex', 'case', 'no-exclude-minified', 'no-scopes', 'pause',
-    'expr', 'e', 'log-this', 'trace-id',
+    'expr', 'e', 'log-this', 'trace-id', 'save',
   ]);
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -529,10 +530,11 @@ async function handleEval(dbg, cdp, sessionId, args) {
   await ensureEnabled(dbg, cdp, sessionId);
   if (!dbg.isPaused()) throw new Error('Execution is not paused');
 
-  const { positional } = parseFlags(args);
+  const { flags, positional } = parseFlags(args);
   const expr = positional[0];
   const frameIdx = positional[1] ? parseInt(positional[1]) : 0;
-  if (!expr) throw new Error('Usage: debug eval <expr> [frame-idx]');
+  const saveFile = flags.save;
+  if (!expr) throw new Error('Usage: debug eval <expr> [frame-idx] [--save <file>]');
 
   const state = dbg.getPausedState();
   if (frameIdx < 0 || frameIdx >= state.callFrames.length) {
@@ -545,7 +547,10 @@ async function handleEval(dbg, cdp, sessionId, args) {
     throw new Error(`Evaluation error: ${result.exceptionDetails.text || result.exceptionDetails.exception?.description || 'unknown'}`);
   }
   const val = result.result.value;
-  return typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val ?? 'undefined');
+  const output = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val ?? 'undefined');
+
+  if (saveFile) return handleSaveResult(output, saveFile, false);
+  return output;
 }
 
 async function handleTrace(dbg, cdp, sessionId, args) {
@@ -791,7 +796,7 @@ async function handleDebug({ cdp, sessionId, args, dbg }) {
         '  stepout                       Step out',
         '  status [options]              Show paused state (--frame N, --no-scopes)',
         '  vars [frame-idx]              Show scope variables',
-        '  eval <expr> [frame-idx]       Evaluate in paused frame',
+        '  eval <expr> [frame-idx] [--save <file>]  Evaluate in paused frame',
         '  trace <func> [options]        Trace function calls (--filter url, --pause)',
         '  logpoint <url> <line> [col]   Set logpoint (--expr expression, no pause)',
         '  inject <code>                 Inject script before every page load',
