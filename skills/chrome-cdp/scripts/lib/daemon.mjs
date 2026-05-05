@@ -2,7 +2,7 @@ import { readFileSync, unlinkSync, existsSync } from 'fs';
 import { spawn } from 'child_process';
 import net from 'net';
 import {
-  IDLE_TIMEOUT, TIMEOUT,
+  IDLE_TIMEOUT, TIMEOUT, NAVIGATION_TIMEOUT,
   DAEMON_CONNECT_RETRIES, DAEMON_CONNECT_DELAY,
   IS_WINDOWS, PAGES_CACHE,
 } from './constants.mjs';
@@ -15,6 +15,7 @@ import * as wsCtx from './websocket-context.mjs';
 import * as interceptCtx from './intercept-context.mjs';
 import * as frameCtx from './frame-context.mjs';
 import * as traceCtx from './trace-context.mjs';
+import { collectEvalDiagnostics, formatEvalError, collectNavDiagnostics, formatNavError, collectClickDiagnostics, formatClickError } from './error-diagnostics.mjs';
 
 async function runDaemon(targetId) {
   const sp = sockPath(targetId);
@@ -194,6 +195,29 @@ async function runDaemon(targetId) {
       }
       return { ok: false, error: `Unknown command: ${cmd}` };
     } catch (e) {
+      if (cmd === 'eval' && (e.message.startsWith('Timeout:') || e.message.includes('timed out'))) {
+        try {
+          const expression = args.join(' ');
+          const diag = await collectEvalDiagnostics(cdp, sessionId, dbg, expression);
+          return { ok: false, error: formatEvalError(e.message, diag) };
+        } catch {}
+      }
+      if ((cmd === 'nav' || cmd === 'navigate') &&
+          (e.message.startsWith('Timeout') || e.message.startsWith('Timed out'))) {
+        try {
+          const targetUrl = args[0] || 'unknown';
+          const diag = await collectNavDiagnostics(cdp, sessionId, dbg, targetUrl);
+          return { ok: false, error: formatNavError(e.message, diag) };
+        } catch {}
+      }
+      if ((cmd === 'click' || cmd === 'clickxy') &&
+          (e.message.startsWith('Timeout') || e.message.includes('timed out'))) {
+        try {
+          const selector = args[0] || 'unknown';
+          const diag = await collectClickDiagnostics(cdp, sessionId, dbg, selector);
+          return { ok: false, error: formatClickError(e.message, diag) };
+        } catch {}
+      }
       return { ok: false, error: e.message };
     }
   }
@@ -262,7 +286,7 @@ async function getOrStartTabDaemon(targetId) {
   throw new Error('Daemon failed to start — did you click Allow in Chrome?');
 }
 
-function sendCommand(conn, req, timeout = TIMEOUT) {
+function sendCommand(conn, req, timeout = TIMEOUT + 5000) {
   return new Promise((resolve, reject) => {
     let buf = '';
     let settled = false;

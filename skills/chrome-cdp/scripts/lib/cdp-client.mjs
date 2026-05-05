@@ -120,7 +120,7 @@ export class CDP {
     });
   }
 
-  send(method, params = {}, sessionId) {
+  send(method, params = {}, sessionId, timeout = TIMEOUT) {
     const id = ++this.#id;
     return new Promise((resolve, reject) => {
       this.#pending.set(id, { resolve, reject });
@@ -132,7 +132,7 @@ export class CDP {
           this.#pending.delete(id);
           reject(new Error(`Timeout: ${method}`));
         }
-      }, TIMEOUT);
+      }, timeout);
     });
   }
 

@@ -13,6 +13,7 @@ import {
   NEEDS_TARGET,
   RUNTIME_DIR,
   IS_WINDOWS,
+  NAVIGATION_TIMEOUT,
 } from './lib/constants.mjs';
 import { resolvePrefix } from './lib/utils.mjs';
 import { CDP, getWsUrl, getPages, formatPageList } from './lib/cdp-client.mjs';
@@ -254,7 +255,10 @@ async function main() {
     process.exit(1);
   }
 
-  const response = await sendCommand(conn, { cmd, args: cmdArgs });
+  const cmdTimeout = (cmd === 'nav' || cmd === 'navigate')
+    ? NAVIGATION_TIMEOUT + 5000
+    : undefined;
+  const response = await sendCommand(conn, { cmd, args: cmdArgs }, cmdTimeout);
 
   if (response.ok) {
     if (response.result) console.log(response.result);

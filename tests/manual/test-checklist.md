@@ -119,3 +119,28 @@ These sites are useful for manual testing. Anti-debugging sites are needed for n
 - [ ] **Idle timeout**: Wait 120 min (or reduce IDLE_TIMEOUT for testing) → daemon should auto-exit
 - [ ] **Multiple commands rapid fire**: Send 10+ commands quickly → all should succeed
 - [ ] **Concurrent daemon access**: Two CLI instances sending commands to same daemon → should not crash
+
+## Timeout Error Diagnostics
+
+These tests verify that timeout errors include rich diagnostic information to help distinguish normal vs abnormal timeouts.
+
+### Eval Timeouts
+
+- [ ] **Eval timeout on slow page**: `eval <target> "while(true){}"` → timeout error should show expression, "Page appears unresponsive", possible causes (infinite loop, page crash, CDP broken), and suggested actions
+- [ ] **Eval timeout on frozen page**: After `while(true){}` freezes the page, subsequent `eval <target> "1+1"` → timeout error should show "Page appears unresponsive — all diagnostic queries failed" with causes and actions
+- [ ] **Timeout error format**: Verify error message structure: `Timeout: <method>` + `expression:` + diagnostic sections + `Possible causes:` + `Suggested actions:`
+- [ ] **Timeout on unresponsive page**: If page is completely unresponsive (all diagnostic queries fail) → should show fallback message "Page appears unresponsive — all diagnostic queries failed" with suggestions (check tab, reload, restart daemon)
+
+> **Note**: `Runtime.evaluate` works independently of the Debugger pause state — eval does NOT timeout when the debugger is paused. Eval also works fine on anti-debugging pages when Debugger is not enabled (no `debugger;` statements fire).
+
+### Nav Timeouts
+
+- [ ] **Nav timeout on unreachable host**: `nav <target> "http://10.255.255.1/"` → timeout error should show target URL, Debugger state (enabled/neutralize), possible causes, and suggested actions
+- [ ] **Nav timeout on anti-debugging page**: `debug reset` → `nav <target> <weread-reader-url>` → timeout error should show target URL, Page state (URL + readyState), Debugger state (enabled, neutralize not deployed), causes, and actions suggesting neutralize
+- [ ] **Nav timeout with neutralize deployed**: On a clean tab: `debug neutralize` → `nav <target> <weread-reader-url>` → timeout error should show "neutralize hook: deployed" in Debugger state, with neutralize-specific advice
+- [ ] **Nav timeout error format**: Verify nav error structure: original error + `target URL:` + diagnostic sections (`Page state:` and/or `Debugger state:`) + `Possible causes:` + `Suggested actions:`
+
+### Click Timeouts
+
+- [ ] **Click timeout format**: (Hard to trigger naturally — click fails fast on missing selectors) Verify error format structure in code review: `selector:` + `Page state:` + `Debugger state:` + `Possible causes:` + `Suggested actions:`
+- [ ] **Clickxy timeout**: (Hard to trigger naturally) Verify error format structure in code review
