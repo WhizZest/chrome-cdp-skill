@@ -92,6 +92,9 @@ These sites are useful for manual testing. Anti-debugging sites are needed for n
 - [ ] **Neutralize remove**: `debug <target> neutralize-remove` → page-load hook removed, fallback breakpoints cleaned
 - [ ] **Neutralize + navigate**: `debug <target> neutralize` → navigate to page with `debugger;` → should not pause at all (page-load hook intercepts)
 - [ ] **Neutralize covers 4 paths**: Verify page-load hook strips `debugger;` from `Function`, `eval`, `setTimeout`, `setInterval`
+- [ ] **Neutralize while(true) defense**: `debug <target> neutralize` → `eval <target> "new Function('while(true){debugger;}')"` → should not freeze (while(true) replaced with while(false))
+- [ ] **Neutralize toString override**: `debug <target> neutralize` → `eval <target> "(function(){var x=1;}).toString()"` → output should NOT contain `++` markers
+- [ ] **Neutralize toString on WeRead**: `debug <target> neutralize` → nav to WeRead bookshelf → page loads without timeout (toString detection bypassed)
 - [ ] **Neutralize + debugger full flow**: neutralize → **reload page** → pause → eval → vars → resume → all work without freeze (test on page with heavy `debugger;` statements)
 - [ ] **Neutralize + debugger stability**: neutralize → **reload page** → pause → resume → wait 10s → eval still works (no pause/resume loop)
 - [ ] **Eval on anti-debugging page without debugger**: `eval <target> location.href` on page with `debugger;` statements → returns URL without freezing (Debugger not enabled)
