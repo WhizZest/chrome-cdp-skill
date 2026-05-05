@@ -3,6 +3,7 @@ import { resolve } from 'path';
 import { registerCommand } from '../lib/command-registry.mjs';
 import { NAVIGATION_TIMEOUT, RUNTIME_DIR } from '../lib/constants.mjs';
 import { sleep } from '../lib/utils.mjs';
+import { TimeoutError } from '../lib/cdp-client.mjs';
 import { evalStr } from './eval.mjs';
 
 function shouldShowAxNode(node, compact = false) {
@@ -174,12 +175,12 @@ async function waitForDocumentReady(cdp, sid, timeoutMs = NAVIGATION_TIMEOUT) {
   }
 
   if (lastState) {
-    throw new Error(`Timed out waiting for navigation to finish (last readyState: ${lastState})`);
+    throw new TimeoutError(`Timed out waiting for navigation to finish (last readyState: ${lastState})`);
   }
   if (lastError) {
-    throw new Error(`Timed out waiting for navigation to finish (${lastError.message})`);
+    throw new TimeoutError(`Timed out waiting for navigation to finish (${lastError.message})`);
   }
-  throw new Error('Timed out waiting for navigation to finish');
+  throw new TimeoutError('Timed out waiting for navigation to finish');
 }
 
 async function navStr(cdp, sid, url, dbg) {

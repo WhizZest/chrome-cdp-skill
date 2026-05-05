@@ -99,6 +99,9 @@ export class TimeoutError extends Error {
   constructor(message) {
     super(message);
     this.name = 'TimeoutError';
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, TimeoutError);
+    }
   }
 }
 
