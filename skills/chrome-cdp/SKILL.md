@@ -94,6 +94,8 @@ Captures the **viewport only** by default. Use `--full` to capture the entire pa
 
 **Cache limit**: 500 requests (FIFO eviction).
 
+> **Note**: `--initiator` 的异步调用链（`parent` 栈帧）需要 Debugger 域启用时才能获取。daemon 默认不启用 Debugger，因此异步父链可能为空。如需完整异步调用栈，先执行 `debug <target> break` 启用 Debugger 后再查看。
+
 ### Console messages
 
 ```bash
@@ -165,7 +167,7 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 
 **Anti-debugging handling**: Some websites use `debugger;` statements (often in recursive timers) to prevent DevTools inspection. The debugger handles this in multiple ways:
 1. **Auto-skip**: By default, `debugger;` pauses (reason=`other`, no breakpoint hit) are automatically resumed, so they don't block normal operation.
-2. **Neutralize**: Use `debug <target> neutralize` to strip `debugger;` statements. It works in two ways: (a) injects a page-load hook that overrides `Function.prototype.constructor` to strip `debugger;` from dynamically created functions on new pages, and (b) scans already-loaded scripts and replaces `debugger;` with `void 0;` via `Debugger.setScriptSource` (falls back to conditional breakpoints if the script is on the stack). This is more effective than auto-skip for sites with heavy anti-debugging (e.g., WeChat Reading).
+2. **Neutralize**: Use `debug <target> neutralize` to strip `debugger;` statements. It works in two ways: (a) injects a page-load hook that overrides `Function.prototype.constructor`, `window.eval`, `window.setTimeout`, and `window.setInterval` to strip `debugger;` from dynamically created code on new pages, and (b) scans already-loaded scripts and replaces `debugger;` with `void 0;` via `Debugger.setScriptSource` (falls back to conditional breakpoints if the script is on the stack). This is more effective than auto-skip for sites with heavy anti-debugging (e.g., WeChat Reading).
 3. **Navigation with debugger active**: The debugger stays enabled during navigation — URL breakpoints (`Debugger.setBreakpointByUrl`) automatically survive across navigations (this is a CDP feature). Code breakpoints and XHR breakpoints are restored after navigation since Chrome resets them.
 4. **State recovery**: If the debugger state becomes inconsistent (e.g., after external `Debugger.disable`), use `debug <target> reset` to re-enable the debugger and restore all breakpoints — no daemon restart needed.
 
@@ -218,7 +220,7 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 
 **Reset tips**: `reset` is useful when the debugger state becomes inconsistent (e.g., after `evalraw Debugger.disable`). It disables and re-enables the debugger, then restores all breakpoints. No daemon restart or Chrome "Allow" click needed.
 
-**Neutralize tips**: Use `neutralize` to strip `debugger;` statements from both new and already-loaded pages. It injects a page-load hook for future pages and scans current scripts to replace `debugger;` with `void 0;`. For sites with heavy anti-debugging (e.g., WeChat Reading), `neutralize` is more effective than auto-skip alone. Use `neutralize-remove` to undo.
+**Neutralize tips**: Use `neutralize` to strip `debugger;` statements from both new and already-loaded pages. It injects a page-load hook (covering `Function`, `eval`, `setTimeout`, `setInterval`) for future pages and scans current scripts to replace `debugger;` with `void 0;`. For sites with heavy anti-debugging (e.g., WeChat Reading), `neutralize` is more effective than auto-skip alone. Use `neutralize-remove` to undo.
 
 **Trace tips**: `trace` sets a conditional breakpoint that logs function calls without pausing (use `--pause` to pause on call). Enhanced options:
 - `--log-this`: Also log the `this` context when the function is called (serialized, functions shown as `[Function]`)

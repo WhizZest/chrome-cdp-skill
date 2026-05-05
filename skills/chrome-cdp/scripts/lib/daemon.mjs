@@ -62,24 +62,6 @@ async function runDaemon(targetId) {
     process.stderr.write(`Daemon: Frame.enable failed: ${e.message}\n`);
   }
 
-  try {
-    await cdp.send('Debugger.enable', {}, sessionId);
-    await cdp.send('Debugger.setAsyncCallStackDepth', { maxDepth: 8 }, sessionId);
-    try { await cdp.send('Debugger.resume', {}, sessionId); } catch {}
-  } catch (e) {
-    process.stderr.write(`Daemon: Debugger.enable failed: ${e.message}\n`);
-  }
-
-  cdp.onEvent('Debugger.paused', async (params, msg) => {
-    if (msg.sessionId && msg.sessionId !== sessionId) return;
-    if (dbg.isEnabled()) return;
-    if (params.hitBreakpoints && params.hitBreakpoints.length > 0) return;
-    if (params.reason !== 'other') return;
-    try {
-      await cdp.send('Debugger.resume', {}, sessionId);
-    } catch {}
-  });
-
   const MAX_CACHED_REQUESTS = 500;
   const SKIP_TYPES = new Set(['image', 'font', 'stylesheet', 'media', 'script', 'other']);
   const cachedRequests = [];
