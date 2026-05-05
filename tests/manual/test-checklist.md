@@ -37,6 +37,16 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 - [ ] `cdp net <target> <id> --initiator` — shows request initiator call stack
 - [ ] `cdp net <target> clear` — clears cache
 
+## Test Sites
+
+These sites are useful for manual testing. Anti-debugging sites are needed for neutralize/debugger tests.
+
+| Site | URL | Anti-debugging | Use for |
+|------|-----|:--:|------|
+| Wikipedia | `https://en.wikipedia.org/wiki/JavaScript` | No | Baseline eval/shot/nav tests |
+| WeRead bookshelf | `https://weread.qq.com/web/shelf` | Yes | Eval without debugger, neutralize basic |
+| WeRead reader | `https://weread.qq.com/web/reader/...` (any book) | Heavy | Neutralize + debugger full flow, stability |
+
 ## Debugger
 
 - [ ] `cdp debug <target> scripts` — lists loaded scripts
@@ -82,11 +92,9 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 - [ ] **Neutralize remove**: `debug <target> neutralize-remove` → page-load hook removed, fallback breakpoints cleaned
 - [ ] **Neutralize + navigate**: `debug <target> neutralize` → navigate to page with `debugger;` → should not pause at all (page-load hook intercepts)
 - [ ] **Neutralize covers 4 paths**: Verify page-load hook strips `debugger;` from `Function`, `eval`, `setTimeout`, `setInterval`
-- [ ] **Neutralize + debugger full flow** (WeRead): neutralize → **reload page** → pause → eval → vars → resume → all work without freeze
-- [ ] **Neutralize + debugger stability** (WeRead): neutralize → **reload page** → pause → resume → wait 10s → eval still works (no pause/resume loop)
-- [ ] **WeRead eval without debugger**: `eval <target> location.href` on WeRead page → returns URL without freezing
-- [ ] **WeRead plugin capture-book**: Full capture-book flow works without anti-debugging interference
-- [ ] **WeRead plugin extract-chapter**: Full extract-chapter flow works without anti-debugging interference
+- [ ] **Neutralize + debugger full flow**: neutralize → **reload page** → pause → eval → vars → resume → all work without freeze (test on page with heavy `debugger;` statements)
+- [ ] **Neutralize + debugger stability**: neutralize → **reload page** → pause → resume → wait 10s → eval still works (no pause/resume loop)
+- [ ] **Eval on anti-debugging page without debugger**: `eval <target> location.href` on page with `debugger;` statements → returns URL without freezing (Debugger not enabled)
 
 ## Performance Trace
 
