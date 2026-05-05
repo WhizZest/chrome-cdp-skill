@@ -468,16 +468,19 @@ async function neutralizeDebuggerStatements(cdp, sessionId) {
 
   var neutralize = function(s) {
     if (typeof s === 'string' && s.indexOf('debugger') !== -1) {
-      return s.replace(/\\bdebugger\\b/g, '');
+      return s.replace(/\\bdebugger\\b/g, 'void 0');
     }
     return s;
   };
 
-  Function.prototype.constructor = function() {
-    if (arguments.length > 0) { arguments[0] = neutralize(arguments[0]); }
-    return _Function.apply(this, arguments);
+  window.Function = function() {
+    var args = Array.prototype.slice.call(arguments);
+    if (args.length > 0) { args[args.length - 1] = neutralize(args[args.length - 1]); }
+    return _Function.apply(this, args);
   };
-  Function.prototype.constructor.toString = function() {
+  window.Function.prototype = _Function.prototype;
+  _Function.prototype.constructor = window.Function;
+  window.Function.toString = function() {
     return 'function Function() { [native code] }';
   };
 
