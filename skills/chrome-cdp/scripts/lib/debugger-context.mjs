@@ -461,14 +461,28 @@ async function neutralizeDebuggerStatements(cdp, sessionId) {
   if (antiDebugScriptId) return antiDebugScriptId;
   const code = `
 (function() {
+  var _origToString = Function.prototype.toString;
+  Function.prototype.toString = function() {
+    var s = _origToString.call(this);
+    return s.replace(/(^|\\n\\s*|[\\{}\\(\\),;])\\+\\+\\s*/gm, '$1');
+  };
+  Function.prototype.toString.toString = function() {
+    return 'function toString() { [native code] }';
+  };
+
   var _Function = Function.prototype.constructor;
   var _eval = window.eval;
   var _setTimeout = window.setTimeout;
   var _setInterval = window.setInterval;
 
   var neutralize = function(s) {
-    if (typeof s === 'string' && s.indexOf('debugger') !== -1) {
-      return s.replace(/\\bdebugger\\b/g, 'void 0');
+    if (typeof s === 'string') {
+      if (s.indexOf('debugger') !== -1) {
+        s = s.replace(/\\bdebugger\\b/g, 'void 0');
+      }
+      if (s.indexOf('while') !== -1 && s.indexOf('true') !== -1) {
+        s = s.replace(/\\bwhile\\s*\\(\\s*true\\s*\\)\\s*\\{/g, 'while(false){');
+      }
     }
     return s;
   };
