@@ -237,7 +237,8 @@ describe('integration: Phase 3 — experience improvements', () => {
       'should indicate full page screenshot'
     );
 
-    const filePath = result.result.split('\n')[0].trim();
+    const pathMatch = result.result.match(/^(.+\.png)$/m);
+    const filePath = pathMatch ? pathMatch[1].trim() : null;
     if (filePath && existsSync(filePath)) {
       const size = statSync(filePath).size;
       assert.ok(size > 100, `screenshot file too small: ${size} bytes at ${filePath}`);

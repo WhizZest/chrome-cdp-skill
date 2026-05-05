@@ -15,14 +15,13 @@ async function quickEval(cdp, sid, expression) {
   }
 }
 
-export async function collectNavDiagnostics(cdp, sessionId, dbg, targetUrl) {
+async function collectBaseDiagnostics(cdp, sessionId, dbg) {
   const [readyState, url] = await Promise.allSettled([
     quickEval(cdp, sessionId, 'document.readyState'),
     quickEval(cdp, sessionId, 'location.href'),
   ]);
 
   return {
-    targetUrl,
     page: {
       readyState: readyState.status === 'fulfilled' ? readyState.value : null,
       url: url.status === 'fulfilled' ? url.value : null,
@@ -33,6 +32,11 @@ export async function collectNavDiagnostics(cdp, sessionId, dbg, targetUrl) {
       neutralizeDeployed: dbg.isNeutralizeDeployed(),
     },
   };
+}
+
+export async function collectNavDiagnostics(cdp, sessionId, dbg, targetUrl) {
+  const diag = await collectBaseDiagnostics(cdp, sessionId, dbg);
+  return { ...diag, targetUrl };
 }
 
 export function formatNavError(originalError, diag) {
@@ -136,23 +140,8 @@ function buildNavActions(diag) {
 }
 
 export async function collectClickDiagnostics(cdp, sessionId, dbg, selector) {
-  const [readyState, url] = await Promise.allSettled([
-    quickEval(cdp, sessionId, 'document.readyState'),
-    quickEval(cdp, sessionId, 'location.href'),
-  ]);
-
-  return {
-    selector,
-    page: {
-      readyState: readyState.status === 'fulfilled' ? readyState.value : null,
-      url: url.status === 'fulfilled' ? url.value : null,
-    },
-    debugger: {
-      enabled: dbg.isEnabled(),
-      paused: dbg.isPaused(),
-      neutralizeDeployed: dbg.isNeutralizeDeployed(),
-    },
-  };
+  const diag = await collectBaseDiagnostics(cdp, sessionId, dbg);
+  return { ...diag, selector };
 }
 
 export function formatClickError(originalError, diag) {
@@ -248,23 +237,8 @@ function buildClickActions(diag) {
 }
 
 export async function collectEvalDiagnostics(cdp, sessionId, dbg, expression) {
-  const [readyState, url] = await Promise.allSettled([
-    quickEval(cdp, sessionId, 'document.readyState'),
-    quickEval(cdp, sessionId, 'location.href'),
-  ]);
-
-  return {
-    expression,
-    page: {
-      readyState: readyState.status === 'fulfilled' ? readyState.value : null,
-      url: url.status === 'fulfilled' ? url.value : null,
-    },
-    debugger: {
-      enabled: dbg.isEnabled(),
-      paused: dbg.isPaused(),
-      neutralizeDeployed: dbg.isNeutralizeDeployed(),
-    },
-  };
+  const diag = await collectBaseDiagnostics(cdp, sessionId, dbg);
+  return { ...diag, expression };
 }
 
 export function formatEvalError(originalError, diag) {
