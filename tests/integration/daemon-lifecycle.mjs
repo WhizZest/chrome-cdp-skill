@@ -3,6 +3,7 @@ import { describe, testAsync, summary, onCleanup } from '../lib/test-runner.mjs'
 import { connectToSocket, sendCommand, stopDaemons } from '../../skills/chrome-cdp/scripts/lib/daemon.mjs';
 import { sockPath, resolvePrefix } from '../../skills/chrome-cdp/scripts/lib/utils.mjs';
 import { readFileSync, existsSync, unlinkSync, statSync } from 'fs';
+import { createServer } from 'http';
 import { PAGES_CACHE } from '../../skills/chrome-cdp/scripts/lib/constants.mjs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -362,6 +363,32 @@ describe('integration: Phase 3 — experience improvements', () => {
     );
     assert.ok(result.error.includes('Possible causes'), `error: ${result.error}`);
     assert.ok(result.error.includes('Suggested actions'), `error: ${result.error}`);
+  });
+
+  testAsync('nav timeout shows diagnostics when page stuck at loading', async () => {
+    const htmlContent = readFileSync('d:/agentSpace/temp/slow-page.html', 'utf8');
+
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(htmlContent);
+    });
+
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const port = server.address().port;
+
+    try {
+      const result = await send('nav', `http://127.0.0.1:${port}/`);
+      assert.equal(result.ok, false);
+      assert.ok(result.error.includes('target URL'), `error: ${result.error}`);
+      assert.ok(
+        result.error.includes('Page state') || result.error.includes('Debugger state') || result.error.includes('unresponsive'),
+        `error: ${result.error}`
+      );
+      assert.ok(result.error.includes('Possible causes'), `error: ${result.error}`);
+      assert.ok(result.error.includes('Suggested actions'), `error: ${result.error}`);
+    } finally {
+      server.close();
+    }
   });
 
   testAsync('daemon survives all Phase 3 commands without restart', async () => {
