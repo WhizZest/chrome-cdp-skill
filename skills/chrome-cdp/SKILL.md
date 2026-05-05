@@ -94,6 +94,8 @@ Captures the **viewport only** by default. Use `--full` to capture the entire pa
 
 **Cache limit**: 500 requests (FIFO eviction).
 
+> **Note**: `--initiator` 的异步调用链（`parent` 栈帧）需要 Debugger 域启用时才能获取。daemon 默认不启用 Debugger，因此异步父链可能为空。如需完整异步调用栈，先执行 `debug <target> break` 启用 Debugger 后再查看。
+
 ### Console messages
 
 ```bash
