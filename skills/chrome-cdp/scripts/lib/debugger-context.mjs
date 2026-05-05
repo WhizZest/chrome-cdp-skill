@@ -489,14 +489,18 @@ async function neutralizeDebuggerStatements(cdp, sessionId) {
   };
 
   window.setTimeout = function(cb, delay) {
-    return _setTimeout.call(this, neutralize(cb), delay);
+    var extraArgs = [];
+    for (var i = 2; i < arguments.length; i++) extraArgs.push(arguments[i]);
+    return _setTimeout.apply(this, [neutralize(cb), delay].concat(extraArgs));
   };
   window.setTimeout.toString = function() {
     return 'function setTimeout() { [native code] }';
   };
 
   window.setInterval = function(cb, delay) {
-    return _setInterval.call(this, neutralize(cb), delay);
+    var extraArgs = [];
+    for (var i = 2; i < arguments.length; i++) extraArgs.push(arguments[i]);
+    return _setInterval.apply(this, [neutralize(cb), delay].concat(extraArgs));
   };
   window.setInterval.toString = function() {
     return 'function setInterval() { [native code] }';
