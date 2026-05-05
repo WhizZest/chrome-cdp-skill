@@ -7,7 +7,7 @@ import {
   IS_WINDOWS, PAGES_CACHE,
 } from './constants.mjs';
 import { sleep, sockPath, resolvePrefix } from './utils.mjs';
-import { CDP, getWsUrl } from './cdp-client.mjs';
+import { CDP, getWsUrl, TimeoutError } from './cdp-client.mjs';
 import { getCommandHandler } from './command-registry.mjs';
 import * as dbg from './debugger-context.mjs';
 import * as consoleCtx from './console-context.mjs';
@@ -195,28 +195,28 @@ async function runDaemon(targetId) {
       }
       return { ok: false, error: `Unknown command: ${cmd}` };
     } catch (e) {
-      if (cmd === 'eval' && (e.message.startsWith('Timeout:') || e.message.includes('timed out'))) {
-        try {
-          const expression = args.join(' ');
-          const diag = await collectEvalDiagnostics(cdp, sessionId, dbg, expression);
-          return { ok: false, error: formatEvalError(e.message, diag) };
-        } catch {}
-      }
-      if ((cmd === 'nav' || cmd === 'navigate') &&
-          (e.message.startsWith('Timeout') || e.message.startsWith('Timed out'))) {
-        try {
-          const targetUrl = args[0] || 'unknown';
-          const diag = await collectNavDiagnostics(cdp, sessionId, dbg, targetUrl);
-          return { ok: false, error: formatNavError(e.message, diag) };
-        } catch {}
-      }
-      if ((cmd === 'click' || cmd === 'clickxy') &&
-          (e.message.startsWith('Timeout') || e.message.includes('timed out'))) {
-        try {
-          const selector = args[0] || 'unknown';
-          const diag = await collectClickDiagnostics(cdp, sessionId, dbg, selector);
-          return { ok: false, error: formatClickError(e.message, diag) };
-        } catch {}
+      if (e instanceof TimeoutError) {
+        if (cmd === 'eval') {
+          try {
+            const expression = args.join(' ');
+            const diag = await collectEvalDiagnostics(cdp, sessionId, dbg, expression);
+            return { ok: false, error: formatEvalError(e.message, diag) };
+          } catch {}
+        }
+        if (cmd === 'nav' || cmd === 'navigate') {
+          try {
+            const targetUrl = args[0] || 'unknown';
+            const diag = await collectNavDiagnostics(cdp, sessionId, dbg, targetUrl);
+            return { ok: false, error: formatNavError(e.message, diag) };
+          } catch {}
+        }
+        if (cmd === 'click' || cmd === 'clickxy') {
+          try {
+            const selector = args[0] || 'unknown';
+            const diag = await collectClickDiagnostics(cdp, sessionId, dbg, selector);
+            return { ok: false, error: formatClickError(e.message, diag) };
+          } catch {}
+        }
       }
       return { ok: false, error: e.message };
     }
