@@ -72,8 +72,6 @@ async function snapshotStr(cdp, sid, compact = false) {
   return lines.join('\n');
 }
 
-const MAX_FULLPAGE_HEIGHT = 16384;
-
 export async function shotStr(cdp, sid, filePath, targetId, args = []) {
   const isFullPage = args.includes('--full');
   const resolvedPath = filePath && !filePath.startsWith('--') ? filePath : null;
@@ -97,43 +95,21 @@ export async function shotStr(cdp, sid, filePath, targetId, args = []) {
     } catch {}
   }
 
-  let originalMetrics = null;
-
-  if (isFullPage) {
-    try {
-      originalMetrics = await cdp.send('Emulation.getDeviceMetricsOverride', {}, sid);
-    } catch {}
-
-    const metrics = await cdp.send('Page.getLayoutMetrics', {}, sid);
-    const contentSize = metrics.cssContentSize || metrics.contentSize;
-    if (!contentSize) throw new Error('Cannot determine page size for full-page screenshot');
-
-    let width = Math.ceil(contentSize.width);
-    let height = Math.ceil(contentSize.height);
-    if (height > MAX_FULLPAGE_HEIGHT) {
-      height = MAX_FULLPAGE_HEIGHT;
-    }
-
-    await cdp.send('Emulation.setDeviceMetricsOverride', {
-      width,
-      height,
-      deviceScaleFactor: dpr,
-      mobile: false,
-    }, sid);
-
-    await sleep(500);
-  }
-
   let data;
   try {
-    ({ data } = await cdp.send('Page.captureScreenshot', { format: 'png' }, sid));
-  } finally {
-    if (isFullPage) {
-      if (originalMetrics) {
-        try { await cdp.send('Emulation.setDeviceMetricsOverride', originalMetrics, sid); } catch {}
-      } else {
-        try { await cdp.send('Emulation.clearDeviceMetricsOverride', {}, sid); } catch {}
-      }
+    await cdp.send('Page.bringToFront', {}, sid).catch(() => {});
+    await sleep(200);
+    const params = { format: 'png', fromSurface: true };
+    if (isFullPage) params.captureBeyondViewport = true;
+    ({ data } = await cdp.send('Page.captureScreenshot', params, sid));
+  } catch (e) {
+    if (e instanceof TimeoutError) {
+      await sleep(500);
+      const params = { format: 'png' };
+      if (isFullPage) params.captureBeyondViewport = true;
+      ({ data } = await cdp.send('Page.captureScreenshot', params, sid));
+    } else {
+      throw e;
     }
   }
 
