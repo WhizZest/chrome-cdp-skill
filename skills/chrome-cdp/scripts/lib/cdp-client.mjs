@@ -95,6 +95,16 @@ export function getWsUrl() {
   return `ws://${host}:${lines[0]}${lines[1]}`;
 }
 
+export class TimeoutError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'TimeoutError';
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, TimeoutError);
+    }
+  }
+}
+
 export class CDP {
   #ws; #id = 0; #pending = new Map(); #eventHandlers = new Map(); #closeHandlers = [];
 
@@ -120,7 +130,7 @@ export class CDP {
     });
   }
 
-  send(method, params = {}, sessionId) {
+  send(method, params = {}, sessionId, timeout = TIMEOUT) {
     const id = ++this.#id;
     return new Promise((resolve, reject) => {
       this.#pending.set(id, { resolve, reject });
@@ -130,9 +140,9 @@ export class CDP {
       setTimeout(() => {
         if (this.#pending.has(id)) {
           this.#pending.delete(id);
-          reject(new Error(`Timeout: ${method}`));
+          reject(new TimeoutError(`Timeout: ${method}`));
         }
-      }, TIMEOUT);
+      }, timeout);
     });
   }
 
@@ -162,7 +172,7 @@ export class CDP {
         if (settled) return;
         settled = true;
         off();
-        reject(new Error(`Timeout waiting for event: ${method}`));
+        reject(new TimeoutError(`Timeout waiting for event: ${method}`));
       }, timeout);
     });
     return {

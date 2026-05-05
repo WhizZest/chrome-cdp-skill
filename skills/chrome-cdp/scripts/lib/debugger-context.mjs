@@ -523,6 +523,10 @@ async function removeNeutralizeDebuggerStatements(cdp, sessionId) {
   antiDebugScriptId = null;
 }
 
+function isNeutralizeDeployed() {
+  return antiDebugScriptId !== null;
+}
+
 async function neutralizeLoadedScripts() {
   if (!cdpRef) throw new Error('Debugger not enabled');
 
@@ -602,7 +606,7 @@ export {
   stepOver, stepInto, stepOut,
   getScopeVariables, evaluateOnCallFrame,
   setSkipDebuggerStatements,
-  neutralizeDebuggerStatements, removeNeutralizeDebuggerStatements,
+  neutralizeDebuggerStatements, removeNeutralizeDebuggerStatements, isNeutralizeDeployed,
   neutralizeLoadedScripts, removeNeutralizeBreakpoints,
   addInjectedScript, removeInjectedScript, getInjectedScripts, clearInjectedScripts,
 };
