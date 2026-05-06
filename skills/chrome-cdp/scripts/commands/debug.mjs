@@ -64,44 +64,20 @@ function prettyPrint(source) {
   // Known limitation: does not detect regex literals (/foo;bar/g).
   // Semicolons inside regex literals will be incorrectly broken.
   // Full JS parsing is out of scope; output is best-effort for readability.
-  const intervals = [];
-  const patterns = [
-    /'(?:\\.|[^'\\])*'/g,
-    /"(?:\\.|[^"\\])*"/g,
-    /`(?:\\.|[^`\\])*`/g,
-    /\/\*[\s\S]*?\*\//g,
-    /\/\/.*/g,
-  ];
-  for (const pat of patterns) {
-    let m;
-    while ((m = pat.exec(source)) !== null) {
-      intervals.push({ start: m.index, end: m.index + m[0].length });
-    }
-  }
-  intervals.sort((a, b) => a.start - b.start);
-
-  function isInInterval(pos) {
-    return intervals.some(iv => pos >= iv.start && pos < iv.end);
-  }
-
-  let result = '';
-  for (let i = 0; i < source.length; i++) {
-    result += source[i];
-    if (source[i] === ';' && !isInInterval(i)) {
-      result += '\n';
-    }
-  }
-  return result.trim();
+  const tokenRe = /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`|\/\*[\s\S]*?\*\/|\/\/.*|;/g;
+  return source.replace(tokenRe, m => m === ';' ? ';\n' : m).trim();
 }
 
 function applyPrettyAndHint(result, source, flags, scriptId) {
   if (flags.pretty) {
     const formatted = prettyPrint(source);
-    return `Source for script ${scriptId} (formatted):\n\n${formatted}`;
+    const headerEnd = result.indexOf('\n\n');
+    const header = headerEnd >= 0 ? result.slice(0, headerEnd).replace(/:$/, ' (formatted):') : `Source for script ${scriptId} (formatted)`;
+    return `${header}\n\n${formatted}`;
   }
 
   const lines = source.split('\n');
-  const maxLineLen = Math.max(...lines.map(l => l.length));
+  const maxLineLen = lines.reduce((max, l) => Math.max(max, l.length), 0);
   if (maxLineLen > 1000) {
     const hintParts = [
       '',
