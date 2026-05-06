@@ -16,7 +16,7 @@ function parseFlags(args) {
     'startLine', 'endLine', 'offset', 'length', 'max',
     'filter', 'cond', 'condition', 'nth', 'frame',
     'regex', 'case', 'no-exclude-minified', 'no-scopes', 'pause',
-    'expr', 'e', 'log-this', 'trace-id', 'save',
+    'expr', 'e', 'log-this', 'trace-id', 'save', 'pretty',
   ]);
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -60,6 +60,65 @@ async function handleScripts(dbg, cdp, sessionId, args) {
   return lines.join('\n');
 }
 
+function prettyPrint(source) {
+  // Known limitation: does not detect regex literals (/foo;bar/g).
+  // Semicolons inside regex literals will be incorrectly broken.
+  // Full JS parsing is out of scope; output is best-effort for readability.
+  const intervals = [];
+  const patterns = [
+    /'(?:\\.|[^'\\])*'/g,
+    /"(?:\\.|[^"\\])*"/g,
+    /`(?:\\.|[^`\\])*`/g,
+    /\/\*[\s\S]*?\*\//g,
+    /\/\/.*/g,
+  ];
+  for (const pat of patterns) {
+    let m;
+    while ((m = pat.exec(source)) !== null) {
+      intervals.push({ start: m.index, end: m.index + m[0].length });
+    }
+  }
+  intervals.sort((a, b) => a.start - b.start);
+
+  function isInInterval(pos) {
+    return intervals.some(iv => pos >= iv.start && pos < iv.end);
+  }
+
+  let result = '';
+  for (let i = 0; i < source.length; i++) {
+    result += source[i];
+    if (source[i] === ';' && !isInInterval(i)) {
+      result += '\n';
+    }
+  }
+  return result.trim();
+}
+
+function applyPrettyAndHint(result, source, flags, scriptId) {
+  if (flags.pretty) {
+    const formatted = prettyPrint(source);
+    return `Source for script ${scriptId} (formatted):\n\n${formatted}`;
+  }
+
+  const lines = source.split('\n');
+  const maxLineLen = Math.max(...lines.map(l => l.length));
+  if (maxLineLen > 1000) {
+    const hintParts = [
+      '',
+      `⚠️  Longest line is ${maxLineLen} characters.`,
+      '    Tip: re-run with --pretty to auto-format into readable multi-line output.',
+      `    Example: cdp debug <target> source ${scriptId} --pretty`,
+    ];
+    if (flags.offset !== undefined) {
+      hintParts[hintParts.length - 1] += ` --offset ${flags.offset} --length ${flags.length || 1000}`;
+    }
+    const hintStr = hintParts.join('\n');
+    result += '\n' + hintStr;
+  }
+
+  return result;
+}
+
 async function handleSource(dbg, cdp, sessionId, args) {
   await ensureEnabled(dbg, cdp, sessionId);
   const { flags, positional } = parseFlags(args);
@@ -99,10 +158,14 @@ async function handleSource(dbg, cdp, sessionId, args) {
     const extract = source.substring(start, end);
     const prefix = start > 0 ? '...' : '';
     const suffix = end < source.length ? '...' : '';
-    return `Source for script ${scriptId} (chars ${start}-${end} of ${source.length}):\n\n${prefix}${extract}${suffix}`;
+    const result = `Source for script ${scriptId} (chars ${start}-${end} of ${source.length}):\n\n${prefix}${extract}${suffix}`;
+    return applyPrettyAndHint(result, extract, flags, scriptId);
   }
 
   if (startLine !== undefined || endLine !== undefined) {
+    if (flags.pretty) {
+      throw new Error('--pretty cannot be used with --startLine/--endLine');
+    }
     const lines = source.split('\n');
     const start = (startLine ?? 1) - 1;
     const end = endLine ?? lines.length;
@@ -116,9 +179,12 @@ async function handleSource(dbg, cdp, sessionId, args) {
   }
 
   if (source.length > 1000) {
-    return `Script ${scriptId} is large (${source.length} chars). Use --startLine/--endLine or --offset/--length to read portions.\n\nFirst 1000 characters:\n\n${source.substring(0, 1000)}...`;
+    const extract = source.substring(0, 1000);
+    const result = `Script ${scriptId} is large (${source.length} chars). Use --startLine/--endLine or --offset/--length to read portions.\n\nFirst 1000 characters:\n\n${extract}...`;
+    return applyPrettyAndHint(result, extract, flags, scriptId);
   }
-  return `Source for script ${scriptId}:\n\n${source}`;
+  const result = `Source for script ${scriptId}:\n\n${source}`;
+  return applyPrettyAndHint(result, source, flags, scriptId);
 }
 
 async function handleSave(dbg, cdp, sessionId, args) {

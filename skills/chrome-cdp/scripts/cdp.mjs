@@ -92,7 +92,7 @@ Usage: cdp <command> [args]
   evalraw <target> <method> [json]  Send a raw CDP command; returns JSON result
                                     e.g. evalraw <t> "DOM.getDocument" '{}'
   debug <target> scripts [filter]   List loaded JS scripts (Debugger domain, lazy-enabled)
-  debug <target> source <id|url>    View script source (--startLine, --endLine, --offset, --length)
+  debug <target> source <id|url>    View script source (--startLine, --endLine, --offset, --length, --pretty)
   debug <target> save <id|url> <f>  Save script source to file
   debug <target> search <query>     Search in scripts (--regex, --case, --filter url)
   debug <target> break <url> <line> Set breakpoint (--cond expr)
