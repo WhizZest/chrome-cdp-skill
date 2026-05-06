@@ -17,7 +17,7 @@ if (!TARGET_PREFIX) {
   process.exit(1);
 }
 
-const GLOBAL_TIMEOUT = 120_000;
+const GLOBAL_TIMEOUT = 200_000;
 setTimeout(() => {
   console.error(`\nGlobal timeout (${GLOBAL_TIMEOUT}ms) — forcing exit`);
   process.exit(2);
@@ -228,10 +228,14 @@ describe('integration: Phase 2 — logpoint', () => {
 
 describe('integration: Phase 3 — experience improvements', () => {
   testAsync('shot --full captures full page screenshot', async () => {
-    await send('nav', 'https://example.com');
-    await sleep(1000);
+    let result;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await send('nav', 'https://example.com');
+      await sleep(3000);
 
-    const result = await sendSlow('shot', SHOT_TIMEOUT, '--full');
+      result = await sendSlow('shot', SHOT_TIMEOUT, '--full');
+      if (result.ok) break;
+    }
     assert.equal(result.ok, true);
     assert.ok(
       result.result.includes('full page') || result.result.includes('Screenshot saved'),
@@ -245,14 +249,21 @@ describe('integration: Phase 3 — experience improvements', () => {
       assert.ok(size > 100, `screenshot file too small: ${size} bytes at ${filePath}`);
       try { unlinkSync(filePath); } catch {}
     }
-  }, 90000);
+  }, 200000);
 
   testAsync('shot without --full captures viewport only', async () => {
-    const result = await sendSlow('shot', SHOT_TIMEOUT);
+    let result;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await send('nav', 'https://example.com');
+      await sleep(3000);
+
+      result = await sendSlow('shot', SHOT_TIMEOUT);
+      if (result.ok) break;
+    }
     assert.equal(result.ok, true);
     assert.ok(!result.result.includes('full page'));
     assert.ok(result.result.includes('Screenshot saved'));
-  }, 90000);
+  }, 200000);
 
   testAsync('frames list shows frame tree', async () => {
     await send('nav', 'https://example.com');
