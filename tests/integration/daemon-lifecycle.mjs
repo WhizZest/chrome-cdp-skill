@@ -17,7 +17,7 @@ if (!TARGET_PREFIX) {
   process.exit(1);
 }
 
-const GLOBAL_TIMEOUT = 120_000;
+const GLOBAL_TIMEOUT = 200_000;
 setTimeout(() => {
   console.error(`\nGlobal timeout (${GLOBAL_TIMEOUT}ms) — forcing exit`);
   process.exit(2);

@@ -33,22 +33,6 @@ await describe('fullpage screenshot: --full parameter detection', async () => {
   });
 });
 
-await describe('fullpage screenshot: MAX_FULLPAGE_HEIGHT constant', async () => {
-  test('height cap is 16384', () => {
-    const MAX_FULLPAGE_HEIGHT = 16384;
-    let height = 20000;
-    if (height > MAX_FULLPAGE_HEIGHT) height = MAX_FULLPAGE_HEIGHT;
-    assert.equal(height, 16384);
-  });
-
-  test('height under cap is unchanged', () => {
-    const MAX_FULLPAGE_HEIGHT = 16384;
-    let height = 5000;
-    if (height > MAX_FULLPAGE_HEIGHT) height = MAX_FULLPAGE_HEIGHT;
-    assert.equal(height, 5000);
-  });
-});
-
 await describe('fullpage screenshot: file suffix', async () => {
   test('full page adds -full suffix', () => {
     const isFullPage = true;

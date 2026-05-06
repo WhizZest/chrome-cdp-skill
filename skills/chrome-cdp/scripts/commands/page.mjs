@@ -105,7 +105,7 @@ export async function shotStr(cdp, sid, filePath, targetId, args = []) {
   } catch (e) {
     if (e instanceof TimeoutError) {
       await sleep(500);
-      const params = { format: 'png' };
+      const params = { format: 'png', fromSurface: false };
       if (isFullPage) params.captureBeyondViewport = true;
       ({ data } = await cdp.send('Page.captureScreenshot', params, sid));
     } else {
