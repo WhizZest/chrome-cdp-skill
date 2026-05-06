@@ -176,9 +176,19 @@ The `debug` command provides JavaScript debugging capabilities via Chrome's Debu
 ```bash
 # Script management
 <skill_dir>/scripts/cdp.mjs debug <target> scripts [filter]   # list loaded JS scripts (optional URL filter)
-<skill_dir>/scripts/cdp.mjs debug <target> source <id|url>    # view script source (--startLine, --endLine, --offset, --length)
+<skill_dir>/scripts/cdp.mjs debug <target> source <id|url>    # view script source (--startLine, --endLine, --offset, --length, --pretty)
 <skill_dir>/scripts/cdp.mjs debug <target> save <id|url> <f>  # save script source to file
 <skill_dir>/scripts/cdp.mjs debug <target> search <query>     # search in scripts (--regex, --case, --filter url)
+
+**Viewing minified/obfuscated scripts**: When inspecting compressed JavaScript (e.g., for anti-debugging analysis), always use `--pretty` to format the output into readable multi-line statements. Without `--pretty`, minified code appears as a single extremely long line that will be truncated by terminals and file readers. The CLI automatically detects long lines and suggests `--pretty` if you forget it.
+
+> **Note**: `--pretty` uses best-effort `;`-based line breaking with string/comment awareness. It does not detect regex literals (`/regex/`), so semicolons inside regex may be incorrectly broken. Output is intended for readability, not round-trip preservation.
+
+```bash
+# Example: analyze anti-debugging code in a minified script
+<skill_dir>/scripts/cdp.mjs debug <target> scripts weread                          # find the script
+<skill_dir>/scripts/cdp.mjs debug <target> source <scriptId> --offset 0 --length 5000 --pretty > temp/head.txt
+```
 
 # Breakpoints
 <skill_dir>/scripts/cdp.mjs debug <target> break <url> <line> [col]  # set breakpoint (--cond expr for conditional)
