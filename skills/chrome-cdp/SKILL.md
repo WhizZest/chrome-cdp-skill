@@ -1,6 +1,6 @@
 ---
 name: chrome-cdp
-description: Interact with local Chrome browser session (only on explicit user approval after being asked to inspect, debug, or interact with a page open in Chrome)
+description: Browse web pages, extract content, automate interactions, debug JavaScript, capture screenshots, and monitor network traffic via Chrome DevTools Protocol. Supports plugins for platform-specific tasks.
 ---
 
 # Chrome CDP
@@ -17,7 +17,40 @@ Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no
 - Node.js 22+ (uses built-in WebSocket)
 - If your browser's `DevToolsActivePort` is in a non-standard location, set `CDP_PORT_FILE` to its full path
 
-## Commands
+## Workflow
+
+### Step 1: Discover or open a target tab
+
+Plugins and most commands need a `<target>` (a browser tab). Use low-level commands to find or create one:
+
+```bash
+<skill_dir>/scripts/cdp.mjs list              # list all open tabs
+<skill_dir>/scripts/cdp.mjs open [url]        # open a new tab
+```
+
+### Step 2: Check if a plugin exists for your task
+
+**Before composing low-level commands, you MUST check if a plugin already solves your task.** Plugins provide higher-level, task-specific functionality that is simpler and more reliable.
+
+```bash
+<skill_dir>/scripts/plugins/plugin.mjs --help
+```
+
+This lists all currently installed plugins with their descriptions. Plugins are independent repos — the list changes as plugins are added or removed.
+
+### Step 3: Use plugin or fall back to low-level commands
+
+**If a matching plugin exists:**
+
+```bash
+<skill_dir>/scripts/plugins/plugin.mjs <plugin-name>          # view plugin details and scripts
+<skill_dir>/scripts/plugins/<plugin-name>/<script>.mjs --help # view script usage
+<skill_dir>/scripts/plugins/<plugin-name>/<script>.mjs ...    # run the script
+```
+
+**If no plugin fits**, use the low-level commands documented below. Consider whether the task warrants creating a new plugin for future reuse.
+
+## Low-Level Commands
 
 `<skill_dir>` refers to the **chrome-cdp skill folder path** (i.e., the directory containing this `SKILL.md` file). All commands use `<skill_dir>/scripts/cdp.mjs`. The `<target>` is a **unique** targetId prefix from `list`; copy the full prefix shown in the `list` output (for example `6BE827FA`). The CLI rejects ambiguous prefixes.
 
@@ -254,6 +287,7 @@ CSS px = screenshot image px / DPR
 
 ## Tips
 
+- **Always check plugins before composing task-specific commands** — run `<skill_dir>/scripts/plugins/plugin.mjs --help`. A plugin may already solve your task.
 - Prefer `snap --compact` over `html` for page structure.
 - Use `type` (not eval) to enter text in cross-origin iframes — `click`/`clickxy` to focus first, then `type`.
 - Use `keypress` to send keyboard events (arrow keys, Enter, F-keys, etc.) — works for page navigation, shortcuts, and any key-based interactions.
@@ -266,16 +300,9 @@ CSS px = screenshot image px / DPR
 
 The daemon is designed to survive normal usage without restarts. If you find a scenario that forces a restart, that's a bug — report it.
 
-## Plugin System
+## Plugin Development
 
-The chrome-cdp skill supports plugins for specific use cases. Plugins are located in `<skill_dir>/scripts/plugins/` subdirectories.
-
-### Viewing Available Plugins
-
-```bash
-<skill_dir>/scripts/plugins/plugin.mjs --help          # List all available plugins
-<skill_dir>/scripts/plugins/plugin.mjs <plugin-name>   # Show plugin details
-```
+Plugins are independent repos located in `<skill_dir>/scripts/plugins/` subdirectories. They can be freely added or removed.
 
 ### Plugin Creation Guidelines
 
@@ -325,29 +352,6 @@ To create a new plugin:
    - The plugin manager will detect and warn about scripts not listed in info.json
    - This ensures users can discover all available plugin features
 
-### Usage Workflow
-
-1. **Check available plugins first**:
-   ```bash
-   <skill_dir>/scripts/plugins/plugin.mjs --help
-   ```
-   See if any existing plugin meets your needs.
-
-2. **View plugin details**:
-   ```bash
-   <skill_dir>/scripts/plugins/plugin.mjs <plugin-name>
-   ```
-   Check available scripts and their usage.
-
-3. **Use plugin scripts**:
-   ```bash
-   <skill_dir>/scripts/plugins/<plugin-name>/<script>.mjs --help
-   <skill_dir>/scripts/plugins/<plugin-name>/<script>.mjs <args>
-   ```
-
-4. **Fall back to cdp.mjs**:
-   If no plugin fits your needs, use the base `cdp.mjs` commands for direct CDP access.
-
 ### Example Plugin Structure
 
 ```
@@ -377,7 +381,7 @@ To create a new plugin:
 │   └── list.mjs                # list / list_raw
 └── plugins/                    # Plugin directory
     ├── plugin.mjs              # Plugin manager
-    └── weread/                 # WeRead plugin
+    └── <plugin-name>/          # Each plugin is an independent repo
         ├── info.json           # Plugin metadata
-        └── extract-chapter.mjs # Chapter extraction script
+        └── <script>.mjs        # Plugin scripts
 ```
