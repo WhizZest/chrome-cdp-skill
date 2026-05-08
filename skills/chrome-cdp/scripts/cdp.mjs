@@ -208,7 +208,7 @@ async function main() {
     } else {
       const result = showPluginDetail(pluginsDir, args[0]);
       if (result.error) {
-        console.error(`错误: ${result.error}`);
+        console.error(`Error: ${result.error}`);
         process.exit(1);
       }
       console.log(result.output);
