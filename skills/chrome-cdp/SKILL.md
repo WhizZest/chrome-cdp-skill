@@ -97,7 +97,7 @@ Plugins and most commands need a `<target>` (a browser tab). Use low-level comma
 **Before composing low-level commands, you MUST check if a plugin already solves your task.** Plugins provide higher-level, task-specific functionality that is simpler and more reliable.
 
 ```bash
-<skill_dir>/scripts/plugins/plugin.mjs --help
+<skill_dir>/scripts/cdp.mjs plugin
 ```
 
 This lists all currently installed plugins with their descriptions. Plugins are independent repos — the list changes as plugins are added or removed.
@@ -107,7 +107,7 @@ This lists all currently installed plugins with their descriptions. Plugins are 
 **If a matching plugin exists:**
 
 ```bash
-<skill_dir>/scripts/plugins/plugin.mjs <plugin-name>          # view plugin details and scripts
+<skill_dir>/scripts/cdp.mjs plugin <plugin-name>              # view plugin details and scripts
 <skill_dir>/scripts/plugins/<plugin-name>/<script>.mjs --help # view script usage
 <skill_dir>/scripts/plugins/<plugin-name>/<script>.mjs ...    # run the script
 ```
@@ -349,7 +349,7 @@ CSS px = screenshot image px / DPR
 
 ## Tips
 
-- **Always check plugins before composing task-specific commands** — run `<skill_dir>/scripts/plugins/plugin.mjs --help`. A plugin may already solve your task.
+- **Always check plugins before composing task-specific commands** — run `<skill_dir>/scripts/cdp.mjs plugin`. A plugin may already solve your task.
 - Prefer `snap --compact` over `html` for page structure.
 - Use `type` (not eval) to enter text in cross-origin iframes — `click`/`clickxy` to focus first, then `type`.
 - Use `keypress` to send keyboard events (arrow keys, Enter, F-keys, etc.) — works for page navigation, shortcuts, and any key-based interactions.
@@ -414,36 +414,13 @@ To create a new plugin:
    - The plugin manager will detect and warn about scripts not listed in info.json
    - This ensures users can discover all available plugin features
 
-### Example Plugin Structure
+### Plugin Directory Structure
 
 ```
-<skill_dir>/scripts/
-├── cdp.mjs                     # Base CDP commands
-├── lib/                        # Core modules
-│   ├── constants.mjs           # Shared constants
-│   ├── utils.mjs               # Utility functions
-│   ├── cdp-client.mjs          # CDP WebSocket client
-│   ├── command-registry.mjs    # Command registry
-│   ├── daemon.mjs              # Per-tab daemon logic
-│   ├── debugger-context.mjs    # Debugger domain state management
-│   ├── console-context.mjs     # Console message state management
-│   ├── websocket-context.mjs   # WebSocket connection state management
-│   ├── intercept-context.mjs   # Network interception state management
-│   ├── frame-context.mjs       # iframe/Frame tree + ExecutionContext management
-├── commands/                   # Built-in commands
-│   ├── eval.mjs                # eval / evalraw
-│   ├── page.mjs                # snap / shot / html / nav
-│   ├── interact.mjs            # click / type / keypress / loadall
-│   ├── network.mjs             # net (with initiator tracking)
-│   ├── console.mjs             # console message monitoring
-│   ├── ws.mjs                  # ws / websocket
-│   ├── intercept.mjs           # network interception
-│   ├── debug.mjs               # debug (scripts, breakpoints, stepping, etc.)
-│   ├── frames.mjs              # frames (list, select, reset for iframe management)
-│   └── list.mjs                # list / list_raw
-└── plugins/                    # Plugin directory
-    ├── plugin.mjs              # Plugin manager
-    └── <plugin-name>/          # Each plugin is an independent repo
-        ├── info.json           # Plugin metadata
-        └── <script>.mjs        # Plugin scripts
+<skill_dir>/scripts/plugins/
+└── <plugin-name>/              # Each plugin is an independent repo
+    ├── info.json               # Plugin metadata (required)
+    └── <script>.mjs            # Plugin scripts
 ```
+
+Use `cdp plugin` to list installed plugins and `cdp plugin <name>` to view details.

@@ -18,6 +18,9 @@ import {
 import { resolvePrefix } from './lib/utils.mjs';
 import { CDP, getWsUrl, getPages, formatPageList } from './lib/cdp-client.mjs';
 import { runDaemon, getOrStartTabDaemon, sendCommand, stopDaemons } from './lib/daemon.mjs';
+import { formatPluginList, showPluginDetail } from './lib/plugin-manager.mjs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 if (!IS_WINDOWS) process.umask(0o077);
 try { mkdirSync(RUNTIME_DIR, { recursive: true, mode: 0o700 }); } catch {}
@@ -120,6 +123,8 @@ Usage: cdp <command> [args]
   frames <target> reset             Reset to main frame
   open  [url]                       Open a new tab (default: about:blank)
                                     Note: each new tab triggers a fresh "Allow debugging?" prompt
+  plugin                            List available plugins
+  plugin <name>                     Show plugin details
   stop  [target]                    Stop daemon(s)
 
 <target> is a unique targetId prefix from "cdp list". If a prefix is ambiguous,
@@ -191,6 +196,23 @@ async function main() {
 
   if (cmd === 'stop') {
     await stopDaemons(args[0]);
+    return;
+  }
+
+  if (cmd === 'plugin') {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const pluginsDir = resolve(__dirname, 'plugins');
+    if (args.length === 0) {
+      console.log(formatPluginList(pluginsDir));
+    } else {
+      const result = showPluginDetail(pluginsDir, args[0]);
+      if (result.error) {
+        console.error(`错误: ${result.error}`);
+        process.exit(1);
+      }
+      console.log(result.output);
+    }
     return;
   }
 
