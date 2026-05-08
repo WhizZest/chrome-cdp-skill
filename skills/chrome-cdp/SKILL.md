@@ -42,7 +42,7 @@ Layer 3: Reverse-Engineer (通常天~周级)
   适用: 离线文件、服务端黑盒、需要复现算法本身
 ```
 
-**Each layer is a fallback for the one above, not an upgrade.** Always start at Layer 1. Only move down when you've confirmed the layer above cannot work.
+**Each layer is a fallback for the one above, not an upgrade.** Always start at Layer 1. Only move down when you've confirmed the layer above cannot work. (Example: A task that takes 4 days via Layer 3 reverse-engineering might take only 2 hours via a Layer 1 hook.)
 
 ### Decision Flow
 
