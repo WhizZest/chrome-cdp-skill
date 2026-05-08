@@ -19,6 +19,68 @@ Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no
 
 `<skill_dir>` refers to the **chrome-cdp skill folder path** (i.e., the directory containing this `SKILL.md` file). All commands use `<skill_dir>/scripts/cdp.mjs`. The `<target>` is a **unique** targetId prefix from `list`; copy the full prefix shown in the `list` output (for example `6BE827FA`). The CLI rejects ambiguous prefixes.
 
+## Thinking Framework: Choose the Right Approach First
+
+**Tools are useless without the right strategy.** Before reaching for any command, decide which layer of approach is appropriate for your task.
+
+### The Three Layers
+
+```
+Layer 1: Intercept (通常分钟级)
+  "The system already does the work. I just need to capture the result."
+  方法: Hook, Proxy, CDP eval, atob/btoa interception
+  适用: 页面内部已经完成计算/解码/渲染，只需拦截输出
+
+Layer 2: Observe (通常小时级)
+  "The system won't tell me directly, but I can watch its behavior."
+  方法: Network monitoring, console capture, performance tracing
+  适用: 需要理解数据流但不需要修改系统行为
+
+Layer 3: Reverse-Engineer (通常天~周级)
+  "The system gives me nothing. I have to take it apart."
+  方法: Debugger breakpoints, script analysis, byte-level decryption
+  适用: 离线文件、服务端黑盒、需要复现算法本身
+```
+
+**Each layer is a fallback for the one above, not an upgrade.** Always start at Layer 1. Only move down when you've confirmed the layer above cannot work.
+
+### Decision Flow
+
+Before choosing tools, ask these questions in order:
+
+1. **"What does the page itself already do?"**
+   - Does it decode data? → Hook `atob`/`btoa`
+   - Does it render text? → Hook Canvas `fillText` or DOM APIs
+   - Does it make API calls? → Intercept `fetch`/`XMLHttpRequest`
+   - Does it execute dynamic code? → Hook `eval`/`Function`
+   - All of the above → use `eval` command to inject hooks
+
+2. **"Can I observe without interfering?"**
+   - Network requests → `net` command
+   - Console output → `console` command
+   - WebSocket messages → `ws` command
+   - Performance profile → `debug perf`
+
+3. **"Do I really need to take it apart?"**
+   - Only if: no runtime environment, system is remote black box, or you need the algorithm itself (not just this result)
+   - Tools: `debug break`, `debug source`, `debug trace`, `evalraw`
+
+### Key Questions Before Any Task
+
+- **假设检查**: What assumption is the existing code/logic making that nobody has questioned?
+- **趋势检查**: Is my workload increasing with each step? If yes, this approach may be unsustainable.
+- **目标检查**: Am I solving the original problem, or a "more convenient" substitute?
+
+### Common Anti-Patterns
+
+| Anti-Pattern | Example | Fix |
+|---|---|---|
+| 逆向惯性 | Jumping to `debug break` before trying `eval` hook | Ask "what does the page already do?" first |
+| 前提盲区 | Assuming CDP response body equals what the page uses | Verify: compare CDP data with page-internal data |
+| 过早妥协 | "Garbled characters can't be fixed" → switch to plain text | Verify encoding assumptions; try different decode paths before accepting data loss |
+| 工具归因 | "The tool isn't powerful enough" when `evalraw` was there all along | Exhaust existing capabilities before building new ones |
+| 为假设造工具 | Building debug/reverse features before confirming they're needed | Confirm the approach works, then invest in tooling |
+
 ## Workflow
 
 ### Step 1: Discover or open a target tab
