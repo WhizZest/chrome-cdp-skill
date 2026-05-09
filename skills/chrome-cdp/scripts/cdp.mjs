@@ -169,7 +169,7 @@ async function main() {
 
   if (cmd === 'list' || cmd === 'ls') {
     const cdp = new CDP();
-    await cdp.connect(getWsUrl());
+    await cdp.connect(await getWsUrl());
     const pages = await getPages(cdp);
     cdp.close();
     writeFileSync(PAGES_CACHE, JSON.stringify(pages), { mode: 0o600 });
@@ -181,7 +181,7 @@ async function main() {
   if (cmd === 'open') {
     const url = args[0] || 'about:blank';
     const cdp = new CDP();
-    await cdp.connect(getWsUrl());
+    await cdp.connect(await getWsUrl());
     const { targetId } = await cdp.send('Target.createTarget', { url });
     const pages = await getPages(cdp);
     if (!pages.some(p => p.targetId === targetId)) {
@@ -190,7 +190,6 @@ async function main() {
     cdp.close();
     writeFileSync(PAGES_CACHE, JSON.stringify(pages), { mode: 0o600 });
     console.log(`Opened new tab: ${targetId.slice(0, 8)}  ${url}`);
-    console.log('Note: this tab will need "Allow debugging?" approval on first access.');
     return;
   }
 

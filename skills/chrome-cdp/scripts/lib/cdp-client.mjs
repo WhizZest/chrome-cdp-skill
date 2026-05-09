@@ -1,10 +1,56 @@
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
 import { resolve } from 'path';
-import { execFileSync } from 'child_process';
-import { TIMEOUT, IS_WINDOWS } from './constants.mjs';
-import { getDisplayPrefixLength } from './utils.mjs';
+import { execFileSync, spawn } from 'child_process';
+import { TIMEOUT, IS_WINDOWS, RUNTIME_DIR } from './constants.mjs';
+import { getDisplayPrefixLength, sleep } from './utils.mjs';
 
+function launchChrome(port, profileDir) {
+  if (IS_WINDOWS) {
+    spawn('cmd.exe', ['/c', 'start', 'chrome.exe',
+      `--remote-debugging-port=${port}`,
+      `--user-data-dir=${profileDir}`,
+      '--no-first-run',
+      '--window-size=1280,720',
+      'about:blank',
+    ], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+  } else if (process.platform === 'darwin') {
+    spawn('open', ['-a', 'Google Chrome', '--args',
+      `--remote-debugging-port=${port}`,
+      `--user-data-dir=${profileDir}`,
+      '--no-first-run',
+      '--window-size=1280,720',
+      'about:blank',
+    ], {
+      detached: true,
+      stdio: 'ignore',
+    });
+  } else {
+    try {
+      spawn('google-chrome-stable', [
+        `--remote-debugging-port=${port}`,
+        `--user-data-dir=${profileDir}`,
+        '--no-first-run',
+        '--window-size=1280,720',
+        'about:blank',
+      ], {
+        detached: true,
+        stdio: 'ignore',
+      });
+    } catch (e) {
+      if (e.code === 'ENOENT') {
+        throw new Error('Chrome not found. Please install Google Chrome.');
+      }
+      throw e;
+    }
+  }
+}
+
+// TODO: WSL support is legacy — remove isWsl() and getWslLocalAppData() when CDP_PORT_FILE fallback is retired
 function isWsl() {
   try {
     const version = readFileSync('/proc/version', 'utf8').toLowerCase();
@@ -30,7 +76,7 @@ function getWslLocalAppData() {
   }
 }
 
-export function getWsUrl() {
+function getWsUrlFromPortFile() {
   const home = homedir();
   const wsl = isWsl();
   const wslLocalAppData = wsl ? getWslLocalAppData() : null;
@@ -93,6 +139,41 @@ export function getWsUrl() {
   if (lines.length < 2 || !lines[0] || !lines[1]) throw new Error(`Invalid DevToolsActivePort file: ${portFile}`);
   const host = process.env.CDP_HOST || '127.0.0.1';
   return `ws://${host}:${lines[0]}${lines[1]}`;
+}
+
+export async function getWsUrl() {
+  if (process.env.CDP_PORT_FILE) {
+    return getWsUrlFromPortFile();
+  }
+
+  const port = parseInt(process.env.CDP_PORT, 10) || 9222;
+  const versionUrl = `http://127.0.0.1:${port}/json/version`;
+
+  try {
+    const res = await fetch(versionUrl);
+    const data = await res.json();
+    return data.webSocketDebuggerUrl;
+  } catch {
+    // Chrome not running, launch it
+  }
+
+  const profileDir = resolve(RUNTIME_DIR, 'chrome-profile');
+  mkdirSync(profileDir, { recursive: true });
+
+  launchChrome(port, profileDir);
+
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    await sleep(500);
+    try {
+      const res = await fetch(versionUrl);
+      const data = await res.json();
+      return data.webSocketDebuggerUrl;
+    } catch {
+      // continue waiting
+    }
+  }
+  throw new Error(`Chrome did not start within 15s on port ${port}`);
 }
 
 export class TimeoutError extends Error {

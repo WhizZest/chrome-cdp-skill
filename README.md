@@ -1,12 +1,12 @@
 # chrome-cdp
 
-Let your AI agent see and interact with your **live Chrome session** — the tabs you already have open, your logged-in accounts, your current page state. No browser automation framework, no separate browser instance, no re-login.
+Let your AI agent see and interact with a **live Chrome session** — your logged-in accounts, your current page state. No browser automation framework, no manual setup.
 
-Works out of the box with any Chrome installation. One toggle to enable, nothing else to install.
+chrome-cdp automatically launches a dedicated Chrome instance with a fixed profile. Cookies persist across sessions — log in once, stay logged in.
 
 ## Why this matters
 
-Most browser automation tools launch a fresh, isolated browser. This one connects to the Chrome you're already running, so your agent can:
+Most browser automation tools launch a fresh, isolated browser. chrome-cdp launches its own dedicated instance with a persistent profile, so your agent can:
 
 - Read pages you're logged into (Gmail, GitHub, internal tools, ...)
 - Interact with tabs you're actively working in
@@ -24,11 +24,11 @@ npx skills add  WhizZest/chrome-cdp-skill
 
 Clone or copy the `skills/chrome-cdp/` directory wherever your agent loads skills or context from. The only runtime dependency is **Node.js 22+** — no npm install needed.
 
-### Enable remote debugging in Chrome
+### Browser
 
-Navigate to `chrome://inspect/#remote-debugging` and toggle the switch. That's it.
+chrome-cdp automatically launches Chrome with remote debugging enabled — no manual setup required. The browser uses a fixed profile under the runtime directory, so cookies and login state persist across sessions.
 
-The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux, and Windows. If your browser stores `DevToolsActivePort` in a non-standard location, set the `CDP_PORT_FILE` environment variable to the full path.
+To connect to an existing Chrome instance instead, set the `CDP_PORT_FILE` environment variable to the path of `DevToolsActivePort`.
 
 ## Usage
 
@@ -56,7 +56,7 @@ The CLI auto-detects Chrome, Chromium, Brave, Edge, and Vivaldi on macOS, Linux,
 <skill_dir>/scripts/cdp.mjs loadall <target> "selector"       # click "load more" until gone
 <skill_dir>/scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
 <skill_dir>/scripts/cdp.mjs info   <target>                   # page info (URL, title, DPR, frames)
-<skill_dir>/scripts/cdp.mjs open   [url]                      # open new tab (triggers Allow prompt)
+<skill_dir>/scripts/cdp.mjs open   [url]                      # open new tab
 <skill_dir>/scripts/cdp.mjs stop   [target]                   # stop daemon(s)
 ```
 
