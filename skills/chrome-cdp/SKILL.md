@@ -9,13 +9,10 @@ Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no
 
 ## Prerequisites
 
-- Chrome (or Chromium, Brave, Edge, Vivaldi) with remote debugging enabled: open `chrome://inspect/#remote-debugging` and toggle the switch
-   ```
-   chrome://inspect/#remote-debugging
-   └── ☑ Allow remote debugging for this browser instance
-   ```
+- Chrome (or Chromium, Brave, Edge, Vivaldi) installed. chrome-cdp automatically launches a dedicated browser instance with a fixed profile — no manual setup required.
+  - Set `CDP_PORT` to use a custom debugging port (default: 9222).
+  - Set `CDP_PORT_FILE` to connect to an existing Chrome instance (legacy mode).
 - Node.js 22+ (uses built-in WebSocket)
-- If your browser's `DevToolsActivePort` is in a non-standard location, set `CDP_PORT_FILE` to its full path
 
 `<skill_dir>` refers to the **chrome-cdp skill folder path** (i.e., the directory containing this `SKILL.md` file). All commands use `<skill_dir>/scripts/cdp.mjs`. The `<target>` is a **unique** targetId prefix from `list`; copy the full prefix shown in the `list` output (for example `6BE827FA`). The CLI rejects ambiguous prefixes.
 

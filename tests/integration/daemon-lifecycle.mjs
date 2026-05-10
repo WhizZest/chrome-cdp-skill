@@ -377,18 +377,18 @@ describe('integration: Phase 3 — experience improvements', () => {
   });
 
   testAsync('nav timeout shows diagnostics when page stuck at loading', async () => {
-    const htmlContent = readFileSync('d:/agentSpace/temp/slow-page.html', 'utf8');
-
-    const server = createServer((_req, res) => {
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(htmlContent);
+    const server = createServer((req, res) => {
+      if (req.url === '/') {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end('<!DOCTYPE html><html><head><title>Slow Page</title><script src="/never-responds"></script></head><body><p>Loading...</p></body></html>');
+      }
     });
 
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const port = server.address().port;
 
     try {
-      const result = await send('nav', `http://127.0.0.1:${port}/`);
+      const result = await sendSlow('nav', 40000, `http://127.0.0.1:${port}/`);
       assert.equal(result.ok, false);
       assert.ok(result.error.includes('target URL'), `error: ${result.error}`);
       assert.ok(

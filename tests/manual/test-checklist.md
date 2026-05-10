@@ -4,8 +4,8 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 
 ## Prerequisites
 
-1. Chrome with remote debugging enabled (`chrome://inspect/#remote-debugging`)
-2. At least one tab open
+1. Run `cdp list` — Chrome launches automatically with remote debugging enabled
+2. At least one tab open (use `cdp open <url>` if needed)
 3. Run `cdp list` to get targetId
 
 ## Basic Commands

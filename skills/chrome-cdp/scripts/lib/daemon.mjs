@@ -22,7 +22,7 @@ async function runDaemon(targetId) {
 
   const cdp = new CDP();
   try {
-    await cdp.connect(getWsUrl());
+    await cdp.connect(await getWsUrl());
   } catch (e) {
     process.stderr.write(`Daemon: cannot connect to Chrome: ${e.message}\n`);
     process.exit(1);
@@ -224,6 +224,7 @@ async function runDaemon(targetId) {
 
   const server = net.createServer((conn) => {
     let buf = '';
+    conn.on('error', () => {});
     conn.on('data', (chunk) => {
       buf += chunk.toString();
       const lines = buf.split('\n');
