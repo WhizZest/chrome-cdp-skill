@@ -14,8 +14,6 @@ Most browser automation tools launch a fresh, isolated browser. chrome-cdp launc
 
 ## Installation
 
-### As a pi skill
-
 ```bash
 npx skills add  WhizZest/chrome-cdp-skill
 ```
