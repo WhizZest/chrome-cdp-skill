@@ -5,9 +5,13 @@ import { execFileSync, spawn } from 'child_process';
 import { TIMEOUT, IS_WINDOWS, RUNTIME_DIR } from './constants.mjs';
 import { getDisplayPrefixLength, sleep } from './utils.mjs';
 
+let launching = false;
+
 function launchChrome(port, profileDir) {
+  if (launching) return;
+  launching = true;
   if (IS_WINDOWS) {
-    spawn('cmd.exe', ['/c', 'start', 'chrome.exe',
+    spawn('cmd.exe', ['/c', 'start', '/b', 'chrome.exe',
       `--remote-debugging-port=${port}`,
       `--user-data-dir=${profileDir}`,
       '--no-first-run',
@@ -153,8 +157,8 @@ export async function getWsUrl() {
     const res = await fetch(versionUrl);
     const data = await res.json();
     return data.webSocketDebuggerUrl;
-  } catch {
-    // Chrome not running, launch it
+  } catch (e) {
+    if (e.cause?.code !== 'ECONNREFUSED') throw e;
   }
 
   const profileDir = resolve(RUNTIME_DIR, 'chrome-profile');
@@ -169,8 +173,8 @@ export async function getWsUrl() {
       const res = await fetch(versionUrl);
       const data = await res.json();
       return data.webSocketDebuggerUrl;
-    } catch {
-      // continue waiting
+    } catch (e) {
+      if (e.cause?.code !== 'ECONNREFUSED') throw e;
     }
   }
   throw new Error(`Chrome did not start within 15s on port ${port}`);
