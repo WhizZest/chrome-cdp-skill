@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, existsSync } from 'fs';
-import { join, resolve, sep } from 'path';
+import { join, resolve, sep, extname } from 'path';
 
 function isValidInfoJson(infoPath) {
   try {
@@ -11,9 +11,9 @@ function isValidInfoJson(infoPath) {
     }
 
     for (const feature of info.features) {
-      if (typeof feature.script !== 'string' ||
-          typeof feature.description !== 'string' ||
-          typeof feature.usage !== 'string') {
+      if (typeof feature.entry !== 'string' || !feature.entry.trim() ||
+          typeof feature.description !== 'string' || !feature.description.trim() ||
+          typeof feature.usage !== 'string' || !feature.usage.trim()) {
         return false;
       }
     }
@@ -22,6 +22,14 @@ function isValidInfoJson(infoPath) {
   } catch (error) {
     return false;
   }
+}
+
+export function getEntryType(feature) {
+  if (feature.type === 'doc') return 'doc';
+  if (feature.type === 'script') return 'script';
+  const ext = extname(feature.entry || '');
+  if (ext === '.md') return 'doc';
+  return 'script';
 }
 
 export function listPlugins(pluginsDir) {
@@ -125,39 +133,42 @@ export function showPluginDetail(pluginsDir, pluginName) {
     lines.push('\u2500'.repeat(60));
     lines.push(`Description: ${info.description}`);
 
-    const actualScripts = [];
+    const actualFiles = new Set();
     const entries = readdirSync(pluginDir, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.isFile() && entry.name.endsWith('.mjs') && entry.name !== 'index.mjs') {
-        actualScripts.push(entry.name);
+      if (entry.isFile()) {
+        actualFiles.add(entry.name);
       }
     }
 
-    const registeredScripts = new Set(
-      (info.features || []).map(f => f.script)
+    const registeredEntries = new Set(
+      (info.features || []).map(f => f.entry.startsWith('./') ? f.entry.slice(2) : f.entry)
     );
 
-    const unregisteredScripts = actualScripts.filter(s => !registeredScripts.has(s));
+    const unregisteredEntries = [...actualFiles].filter(s => s.endsWith('.mjs') && s !== 'index.mjs' && !registeredEntries.has(s));
 
     if (info.features && info.features.length > 0) {
       lines.push('\nFeatures:\n');
       for (const feature of info.features) {
-        const scriptExists = actualScripts.includes(feature.script);
-        const status = scriptExists ? '' : ' [file not found]';
-        lines.push(`    Script: ${feature.script}${status}`);
+        const entryType = getEntryType(feature);
+        const label = entryType === 'doc' ? 'Doc' : 'Script';
+        const usageLabel = entryType === 'doc' ? 'Reference' : 'Usage';
+        const fileExists = actualFiles.has(feature.entry) || existsSync(join(pluginDir, feature.entry));
+        const status = fileExists ? '' : ' [file not found]';
+        lines.push(`    ${label}: ${feature.entry}${status}`);
         lines.push(`    Description: ${feature.description}`);
-        lines.push(`    Usage: ${feature.usage}`);
+        lines.push(`    ${usageLabel}: ${feature.usage}`);
         lines.push('');
       }
     }
 
-    if (unregisteredScripts.length > 0) {
+    if (unregisteredEntries.length > 0) {
       lines.push('\u2500'.repeat(60));
-      lines.push('\nWarning: unregistered scripts found:\n');
-      for (const script of unregisteredScripts) {
-        lines.push(`    - ${script}`);
+      lines.push('\nWarning: unregistered entries found:\n');
+      for (const ent of unregisteredEntries) {
+        lines.push(`    - ${ent}`);
       }
-      lines.push('\nPlease add metadata for these scripts in the info.json features array.');
+      lines.push('\nPlease add metadata for these entries in the info.json features array.');
     }
 
     lines.push('\u2500'.repeat(60));
