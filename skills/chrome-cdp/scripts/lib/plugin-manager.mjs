@@ -11,9 +11,9 @@ function isValidInfoJson(infoPath) {
     }
 
     for (const feature of info.features) {
-      if (typeof feature.entry !== 'string' ||
-          typeof feature.description !== 'string' ||
-          typeof feature.usage !== 'string') {
+      if (typeof feature.entry !== 'string' || !feature.entry.trim() ||
+          typeof feature.description !== 'string' || !feature.description.trim() ||
+          typeof feature.usage !== 'string' || !feature.usage.trim()) {
         return false;
       }
     }
@@ -142,7 +142,7 @@ export function showPluginDetail(pluginsDir, pluginName) {
     }
 
     const registeredEntries = new Set(
-      (info.features || []).map(f => f.entry)
+      (info.features || []).map(f => f.entry.startsWith('./') ? f.entry.slice(2) : f.entry)
     );
 
     const unregisteredEntries = [...actualFiles].filter(s => s.endsWith('.mjs') && s !== 'index.mjs' && !registeredEntries.has(s));
