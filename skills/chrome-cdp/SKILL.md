@@ -25,7 +25,7 @@ Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no
 ```
 Layer 0: Plugin (秒级) ⭐ ALWAYS CHECK FIRST
   "Someone already solved this. Just use it."
-  方法: cdp plugin <name>
+  方法: cdp plugin [name]
   适用: 有现成插件的常见任务
 
 Layer 1: Intercept (通常分钟级)
