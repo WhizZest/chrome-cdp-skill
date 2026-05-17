@@ -20,9 +20,14 @@ Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no
 
 **Tools are useless without the right strategy.** Before reaching for any command, decide which layer of approach is appropriate for your task.
 
-### The Three Layers
+### The Four Layers
 
 ```
+Layer 0: Plugin (秒级) ⭐ ALWAYS CHECK FIRST
+  "Someone already solved this. Just use it."
+  方法: cdp plugin <name>
+  适用: 有现成插件的常见任务
+
 Layer 1: Intercept (通常分钟级)
   "The system already does the work. I just need to capture the result."
   方法: Hook, Proxy, CDP eval, atob/btoa interception
@@ -39,11 +44,16 @@ Layer 3: Reverse-Engineer (通常天~周级)
   适用: 离线文件、服务端黑盒、需要复现算法本身
 ```
 
-**Each layer is a fallback for the one above, not an upgrade.** Always start at Layer 1. Only move down when you've confirmed the layer above cannot work. (Example: A task that takes 4 days via Layer 3 reverse-engineering might take only 2 hours via a Layer 1 hook.)
+**Each layer is a fallback for the one above, not an upgrade.** Always start at Layer 0 (check plugins). Only move down when you've confirmed the layer above cannot work. (Example: A task that takes 4 days via Layer 3 reverse-engineering might take only 2 hours via a Layer 1 hook, or seconds via a Layer 0 plugin.)
 
 ### Decision Flow
 
 Before choosing tools, ask these questions in order:
+
+0. **"Is there a plugin for this?"** ⭐ ALWAYS ASK FIRST
+   - Check available plugins → `cdp plugin`
+   - If yes, use the plugin directly
+   - If no, proceed to question 1
 
 1. **"What does the page itself already do?"**
    - Does it decode data? → Hook `atob`/`btoa`
@@ -80,16 +90,7 @@ Before choosing tools, ask these questions in order:
 
 ## Workflow
 
-### Step 1: Discover or open a target tab
-
-Plugins and most commands need a `<target>` (a browser tab). Use low-level commands to find or create one:
-
-```bash
-<skill_dir>/scripts/cdp.mjs list              # list all open tabs
-<skill_dir>/scripts/cdp.mjs open [url]        # open a new tab
-```
-
-### Step 2: Check if a plugin exists for your task
+### Step 1: Check if a plugin exists for your task
 
 **Before composing low-level commands, you MUST check if a plugin already solves your task.** Plugins provide higher-level, task-specific functionality that is simpler and more reliable.
 
@@ -98,6 +99,15 @@ Plugins and most commands need a `<target>` (a browser tab). Use low-level comma
 ```
 
 This lists all currently installed plugins with their descriptions. Plugins are independent repos — the list changes as plugins are added or removed.
+
+### Step 2: Discover or open a target tab
+
+Plugins and most commands need a `<target>` (a browser tab). Use low-level commands to find or create one:
+
+```bash
+<skill_dir>/scripts/cdp.mjs list              # list all open tabs
+<skill_dir>/scripts/cdp.mjs open [url]        # open a new tab
+```
 
 ### Step 3: Use plugin or fall back to low-level commands
 
