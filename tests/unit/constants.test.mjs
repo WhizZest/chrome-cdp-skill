@@ -32,12 +32,20 @@ describe('constants: BROWSERS structure', () => {
     assert.equal(new Set(ids).size, ids.length, 'duplicate browser ids');
   });
 
-  test('all executables are absolute paths (Windows)', () => {
-    if (!IS_WINDOWS) return;
-    for (const browser of BROWSERS) {
-      for (const exe of browser.executables) {
-        assert.ok(exe.startsWith('C:\\'),
-          `${browser.id}: ${exe} is not absolute`);
+  test('all executables are absolute paths', () => {
+    if (IS_WINDOWS) {
+      for (const browser of BROWSERS) {
+        for (const exe of browser.executables) {
+          assert.ok(exe.startsWith('C:\\'),
+            `${browser.id}: ${exe} is not absolute`);
+        }
+      }
+    } else {
+      for (const browser of BROWSERS) {
+        for (const exe of browser.executables) {
+          assert.ok(exe.startsWith('/'),
+            `${browser.id}: ${exe} is not absolute`);
+        }
       }
     }
   });

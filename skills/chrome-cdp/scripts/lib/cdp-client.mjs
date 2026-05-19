@@ -33,23 +33,16 @@ function launchChrome(port, profileDir, executable) {
       stdio: 'ignore',
     });
   } else {
-    try {
-      spawn('google-chrome-stable', [
-        `--remote-debugging-port=${port}`,
-        `--user-data-dir=${profileDir}`,
-        '--no-first-run',
-        '--window-size=1280,720',
-        'about:blank',
-      ], {
-        detached: true,
-        stdio: 'ignore',
-      });
-    } catch (e) {
-      if (e.code === 'ENOENT') {
-        throw new Error('Chrome not found. Please install Google Chrome.');
-      }
-      throw e;
-    }
+    spawn(executable, [
+      `--remote-debugging-port=${port}`,
+      `--user-data-dir=${profileDir}`,
+      '--no-first-run',
+      '--window-size=1280,720',
+      'about:blank',
+    ], {
+      detached: true,
+      stdio: 'ignore',
+    });
   }
 }
 
