@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
 import { execFileSync, spawn } from 'child_process';
 import { TIMEOUT, IS_WINDOWS, RUNTIME_DIR, BROWSERS, LAST_BROWSER_FILE } from './constants.mjs';
 import { getDisplayPrefixLength, sleep } from './utils.mjs';
@@ -179,6 +179,7 @@ export function pickBrowser(browserId) {
 
 export function saveLastBrowser(browserId) {
   try {
+    mkdirSync(dirname(LAST_BROWSER_FILE), { recursive: true });
     writeFileSync(LAST_BROWSER_FILE, JSON.stringify({ browser: browserId }), { mode: 0o600 });
   } catch {}
 }

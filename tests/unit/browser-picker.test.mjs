@@ -3,12 +3,15 @@ import { describe, test, testAsync, summary, onCleanup } from '../lib/test-runne
 import { existsSync, readFileSync, writeFileSync, unlinkSync, copyFileSync } from 'fs';
 import {
   LAST_BROWSER_FILE,
+  BROWSERS,
 } from '../../skills/chrome-cdp/scripts/lib/constants.mjs';
 import {
   pickBrowser,
   saveLastBrowser,
   loadLastBrowser,
 } from '../../skills/chrome-cdp/scripts/lib/cdp-client.mjs';
+
+const IS_WINDOWS = process.platform === 'win32';
 
 function backupLastBrowser() {
   if (existsSync(LAST_BROWSER_FILE)) {
@@ -71,7 +74,9 @@ describe('browser-picker: pickBrowser', () => {
       assert.fail('should have thrown');
     } catch (e) {
       assert.ok(e.message.includes('chrome'), 'should mention chrome');
-      assert.ok(e.message.includes('edge'), 'should mention edge');
+      if (IS_WINDOWS) {
+        assert.ok(e.message.includes('edge'), 'should mention edge');
+      }
     }
   });
 
