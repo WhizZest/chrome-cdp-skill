@@ -54,7 +54,7 @@ export const KEY_MAP = {
   'F12': { key: 'F12', code: 'F12', keyCode: 123, windowsVirtualKeyCode: 123 },
 };
 
-export const BROWSERS = [
+export const BROWSERS = IS_WINDOWS ? [
   {
     id: 'chrome',
     name: 'Google Chrome',
@@ -72,6 +72,12 @@ export const BROWSERS = [
       resolve(process.env.ProgramFiles, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
       resolve(process.env['ProgramFiles(x86)'], 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
     ],
+  },
+] : [
+  {
+    id: 'chrome',
+    name: 'Google Chrome',
+    executables: ['google-chrome-stable'],
   },
 ];
 

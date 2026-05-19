@@ -1,12 +1,13 @@
 import assert from 'assert/strict';
 import { describe, test, summary } from '../lib/test-runner.mjs';
 import { BROWSERS, LAST_BROWSER_FILE, RUNTIME_DIR } from '../../skills/chrome-cdp/scripts/lib/constants.mjs';
-import { existsSync } from 'fs';
+
+const IS_WINDOWS = process.platform === 'win32';
 
 describe('constants: BROWSERS structure', () => {
   test('BROWSERS is non-empty array', () => {
     assert.ok(Array.isArray(BROWSERS));
-    assert.ok(BROWSERS.length >= 2);
+    assert.ok(BROWSERS.length >= 1);
   });
 
   test('chrome entry exists with required fields', () => {
@@ -14,10 +15,11 @@ describe('constants: BROWSERS structure', () => {
     assert.ok(chrome, 'chrome entry missing');
     assert.equal(chrome.name, 'Google Chrome');
     assert.ok(Array.isArray(chrome.executables));
-    assert.ok(chrome.executables.length >= 3);
+    assert.ok(chrome.executables.length >= 1);
   });
 
   test('edge entry exists with required fields', () => {
+    if (!IS_WINDOWS) return;
     const edge = BROWSERS.find(b => b.id === 'edge');
     assert.ok(edge, 'edge entry missing');
     assert.equal(edge.name, 'Microsoft Edge');
@@ -30,10 +32,11 @@ describe('constants: BROWSERS structure', () => {
     assert.equal(new Set(ids).size, ids.length, 'duplicate browser ids');
   });
 
-  test('all executables are absolute paths', () => {
+  test('all executables are absolute paths (Windows)', () => {
+    if (!IS_WINDOWS) return;
     for (const browser of BROWSERS) {
       for (const exe of browser.executables) {
-        assert.ok(exe.startsWith('C:\\') || exe.startsWith('/'),
+        assert.ok(exe.startsWith('C:\\'),
           `${browser.id}: ${exe} is not absolute`);
       }
     }
