@@ -9,9 +9,11 @@ Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no
 
 ## Prerequisites
 
-- Chrome (or Chromium, Brave, Edge, Vivaldi) installed. chrome-cdp automatically launches a dedicated browser instance with a fixed profile — no manual setup required.
+- **Google Chrome** and/or **Microsoft Edge** installed. chrome-cdp automatically picks the best available browser (last used > Chrome > Edge) or use `--browser chrome|edge` to specify explicitly.
+  - Each browser gets its own isolated profile (`$RUNTIME_DIR/chrome-profile/`, `$RUNTIME_DIR/edge-profile/`), so logins and settings are per-browser.
+  - The last used browser is saved, so subsequent commands default to the same browser.
   - Set `CDP_PORT` to use a custom debugging port (default: 9222).
-  - Set `CDP_PORT_FILE` to connect to an existing Chrome instance (legacy mode).
+  - Set `CDP_PORT_FILE` to connect to an existing browser instance (legacy mode).
 - Node.js 22+ (uses built-in WebSocket)
 
 `<skill_dir>` refers to the **chrome-cdp skill folder path** (i.e., the directory containing this `SKILL.md` file). All commands use `<skill_dir>/scripts/cdp.mjs`. The `<target>` is a **unique** targetId prefix from `list`; copy the full prefix shown in the `list` output (for example `6BE827FA`). The CLI rejects ambiguous prefixes.
@@ -105,8 +107,10 @@ This lists all currently installed plugins with their descriptions. Plugins are 
 Plugins and most commands need a `<target>` (a browser tab). Use low-level commands to find or create one:
 
 ```bash
-<skill_dir>/scripts/cdp.mjs list              # list all open tabs
-<skill_dir>/scripts/cdp.mjs open [url]        # open a new tab
+<skill_dir>/scripts/cdp.mjs list                     # list all open tabs
+<skill_dir>/scripts/cdp.mjs list --browser edge      # use Edge instead of Chrome
+<skill_dir>/scripts/cdp.mjs open [url]               # open a new tab
+<skill_dir>/scripts/cdp.mjs open [url] --browser chrome  # explicitly use Chrome
 ```
 
 ### Step 3: Use plugin or fall back to low-level commands

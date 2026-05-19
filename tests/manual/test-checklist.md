@@ -8,6 +8,18 @@ These tests require a running Chrome browser and manual interaction (clicking "A
 2. At least one tab open (use `cdp open <url>` if needed)
 3. Run `cdp list` to get targetId
 
+## Multi-Browser (NEW)
+
+- [ ] `cdp list --browser chrome` — launches Chrome, shows open tabs
+- [ ] `cdp list --browser edge` — launches Edge, shows open tabs
+- [ ] `cdp open --browser edge <url>` — opens new tab in Edge
+- [ ] `cdp list --browser firefox` — errors with "Unknown browser: firefox"
+- [ ] Delete `%LocalAppData%\cdp\last-browser.json` — clear preference
+- [ ] `cdp list` (after clearing) — auto-selects Chrome (priority fallback)
+- [ ] `cdp list --browser edge` then `cdp list` — second call auto-selects Edge (last used)
+- [ ] Verify profiles: `%LocalAppData%\cdp\chrome-profile\` and `edge-profile\` exist separately
+- [ ] Verify `last-browser.json` is written after `list`/`open`
+
 ## Basic Commands
 
 - [ ] `cdp list` — shows open tabs

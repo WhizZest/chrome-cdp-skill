@@ -1,17 +1,17 @@
-import { readFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
 import { resolve } from 'path';
 import { execFileSync, spawn } from 'child_process';
-import { TIMEOUT, IS_WINDOWS, RUNTIME_DIR } from './constants.mjs';
+import { TIMEOUT, IS_WINDOWS, RUNTIME_DIR, BROWSERS, LAST_BROWSER_FILE } from './constants.mjs';
 import { getDisplayPrefixLength, sleep } from './utils.mjs';
 
 let launching = false;
 
-function launchChrome(port, profileDir) {
+function launchChrome(port, profileDir, executable) {
   if (launching) return;
   launching = true;
   if (IS_WINDOWS) {
-    spawn('cmd.exe', ['/c', 'start', '/b', 'chrome.exe',
+    spawn(executable, [
       `--remote-debugging-port=${port}`,
       `--user-data-dir=${profileDir}`,
       '--no-first-run',
@@ -20,7 +20,6 @@ function launchChrome(port, profileDir) {
     ], {
       detached: true,
       stdio: 'ignore',
-      windowsHide: true,
     });
   } else if (process.platform === 'darwin') {
     spawn('open', ['-a', 'Google Chrome', '--args',
@@ -145,11 +144,64 @@ function getWsUrlFromPortFile() {
   return `ws://${host}:${lines[0]}${lines[1]}`;
 }
 
-export async function getWsUrl() {
+export function pickBrowser(browserId) {
+  if (browserId) {
+    const browser = BROWSERS.find(b => b.id === browserId);
+    if (!browser) {
+      throw new Error(`Unknown browser: ${browserId}. Available: ${BROWSERS.map(b => b.id).join(', ')}`);
+    }
+    const executable = browser.executables.find(e => existsSync(e));
+    if (!executable) {
+      throw new Error(`${browser.name} executable not found. Tried:\n  ${browser.executables.join('\n  ')}`);
+    }
+    return { ...browser, executable };
+  }
+
+  const lastUsed = loadLastBrowser();
+  if (lastUsed) {
+    const browser = BROWSERS.find(b => b.id === lastUsed);
+    if (browser) {
+      const executable = browser.executables.find(e => existsSync(e));
+      if (executable) return { ...browser, executable };
+    }
+  }
+
+  for (const browser of BROWSERS) {
+    const executable = browser.executables.find(e => existsSync(e));
+    if (executable) {
+      saveLastBrowser(browser.id);
+      return { ...browser, executable };
+    }
+  }
+
+  throw new Error(`No browser found. Tried:\n${BROWSERS.flatMap(b => b.executables).map(p => `  ${p}`).join('\n')}`);
+}
+
+export function saveLastBrowser(browserId) {
+  try {
+    writeFileSync(LAST_BROWSER_FILE, JSON.stringify({ browser: browserId }), { mode: 0o600 });
+  } catch {}
+}
+
+export function loadLastBrowser() {
+  try {
+    if (!existsSync(LAST_BROWSER_FILE)) return null;
+    const data = JSON.parse(readFileSync(LAST_BROWSER_FILE, 'utf8'));
+    return data.browser || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getWsUrl(browserId) {
+  // NB: daemon assumes last-browser.json has been written by list/open.
+  // If daemon is ever called first, it falls back to default priority.
   if (process.env.CDP_PORT_FILE) {
     return getWsUrlFromPortFile();
   }
 
+  // If browserId is explicitly provided, block auto-fallback.
+  // If not provided, auto-select from last-browser.json or priority order.
   const port = parseInt(process.env.CDP_PORT, 10) || 9222;
   const versionUrl = `http://127.0.0.1:${port}/json/version`;
 
@@ -161,10 +213,12 @@ export async function getWsUrl() {
     if (e.cause?.code !== 'ECONNREFUSED') throw e;
   }
 
-  const profileDir = resolve(RUNTIME_DIR, 'chrome-profile');
+  const browser = pickBrowser(browserId);
+  const profileDir = resolve(RUNTIME_DIR, `${browser.id}-profile`);
   mkdirSync(profileDir, { recursive: true });
 
-  launchChrome(port, profileDir);
+  launchChrome(port, profileDir, browser.executable);
+  saveLastBrowser(browser.id);
 
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
@@ -177,7 +231,7 @@ export async function getWsUrl() {
       if (e.cause?.code !== 'ECONNREFUSED') throw e;
     }
   }
-  throw new Error(`Chrome did not start within 15s on port ${port}`);
+  throw new Error(`${browser.name} did not start within 15s on port ${port}`);
 }
 
 export class TimeoutError extends Error {
