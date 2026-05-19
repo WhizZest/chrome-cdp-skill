@@ -22,7 +22,7 @@ function launchChrome(port, profileDir, executable) {
       stdio: 'ignore',
     });
   } else if (process.platform === 'darwin') {
-    spawn('open', ['-a', 'Google Chrome', '--args',
+    spawn('open', ['-a', executable, '--args',
       `--remote-debugging-port=${port}`,
       `--user-data-dir=${profileDir}`,
       '--no-first-run',

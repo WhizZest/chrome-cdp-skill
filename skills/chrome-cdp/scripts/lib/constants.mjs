@@ -73,6 +73,12 @@ export const BROWSERS = IS_WINDOWS ? [
       resolve(process.env['ProgramFiles(x86)'], 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
     ],
   },
+] : process.platform === 'darwin' ? [
+  {
+    id: 'chrome',
+    name: 'Google Chrome',
+    executables: ['/Applications/Google Chrome.app'],
+  },
 ] : [
   {
     id: 'chrome',
