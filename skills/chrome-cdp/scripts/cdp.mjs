@@ -18,6 +18,7 @@ import {
 import { resolvePrefix } from './lib/utils.mjs';
 import { CDP, getWsUrl, getPages, formatPageList } from './lib/cdp-client.mjs';
 import { runDaemon, getOrStartTabDaemon, sendCommand, stopDaemons } from './lib/daemon.mjs';
+import { getCommandHandler } from './lib/command-registry.mjs';
 import { formatPluginList, showPluginDetail } from './lib/plugin-manager.mjs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -36,10 +37,12 @@ import './commands/ws.mjs';
 import './commands/intercept.mjs';
 import './commands/frames.mjs';
 import './commands/info.mjs';
+import './commands/open.mjs';
 
 const USAGE = `cdp - lightweight Chrome DevTools Protocol CLI (no Puppeteer)
 
 Usage: cdp <command> [args]
+  --browser <chrome|edge>          Specify browser (default: last used, or chrome > edge)
 
   list                              List open pages (shows unique target prefixes)
   snap  <target>                    Accessibility tree snapshot
@@ -159,6 +162,13 @@ DAEMON IPC (for advanced use / scripting)
 `;
 
 async function main() {
+  const browserFlagIndex = process.argv.indexOf('--browser');
+  let explicitBrowserId = null;
+  if (browserFlagIndex !== -1 && browserFlagIndex + 1 < process.argv.length) {
+    explicitBrowserId = process.argv[browserFlagIndex + 1];
+    process.argv.splice(browserFlagIndex, 2);
+  }
+
   const [cmd, ...args] = process.argv.slice(2);
 
   if (cmd === '_daemon') { await runDaemon(args[0]); return; }
@@ -167,9 +177,14 @@ async function main() {
     console.log(USAGE); process.exit(0);
   }
 
+  if (explicitBrowserId && cmd !== 'list' && cmd !== 'open') {
+    console.error(`--browser is only valid with 'list' and 'open' commands`);
+    process.exit(1);
+  }
+
   if (cmd === 'list' || cmd === 'ls') {
     const cdp = new CDP();
-    await cdp.connect(await getWsUrl());
+    await cdp.connect(await getWsUrl(explicitBrowserId));
     const pages = await getPages(cdp);
     cdp.close();
     writeFileSync(PAGES_CACHE, JSON.stringify(pages), { mode: 0o600 });
@@ -181,15 +196,15 @@ async function main() {
   if (cmd === 'open') {
     const url = args[0] || 'about:blank';
     const cdp = new CDP();
-    await cdp.connect(await getWsUrl());
-    const { targetId } = await cdp.send('Target.createTarget', { url });
+    await cdp.connect(await getWsUrl(explicitBrowserId));
+    const result = await getCommandHandler('open')({ cdp, args });
     const pages = await getPages(cdp);
-    if (!pages.some(p => p.targetId === targetId)) {
-      pages.push({ targetId, title: url, url });
+    if (!pages.some(p => p.targetId === result.targetId)) {
+      pages.push({ targetId: result.targetId, title: url, url });
     }
     cdp.close();
     writeFileSync(PAGES_CACHE, JSON.stringify(pages), { mode: 0o600 });
-    console.log(`Opened new tab: ${targetId.slice(0, 8)}  ${url}`);
+    console.log(`Opened new tab: ${result.targetId.slice(0, 8)}  ${url}`);
     return;
   }
 

@@ -54,6 +54,41 @@ export const KEY_MAP = {
   'F12': { key: 'F12', code: 'F12', keyCode: 123, windowsVirtualKeyCode: 123 },
 };
 
+export const BROWSERS = IS_WINDOWS ? [
+  {
+    id: 'chrome',
+    name: 'Google Chrome',
+    executables: [
+      resolve(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      resolve(process.env.ProgramFiles, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      resolve(process.env['ProgramFiles(x86)'], 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    ],
+  },
+  {
+    id: 'edge',
+    name: 'Microsoft Edge',
+    executables: [
+      resolve(process.env.LOCALAPPDATA, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      resolve(process.env.ProgramFiles, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      resolve(process.env['ProgramFiles(x86)'], 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    ],
+  },
+] : process.platform === 'darwin' ? [
+  {
+    id: 'chrome',
+    name: 'Google Chrome',
+    executables: ['/Applications/Google Chrome.app'],
+  },
+] : [
+  {
+    id: 'chrome',
+    name: 'Google Chrome',
+    executables: ['google-chrome-stable'],
+  },
+];
+
+export const LAST_BROWSER_FILE = resolve(RUNTIME_DIR, 'last-browser.json');
+
 export const NEEDS_TARGET = new Set([
   'snap','snapshot','eval','shot','screenshot','html','nav','navigate',
   'net','network','click','clickxy','type','keypress','loadall','evalraw','debug',
