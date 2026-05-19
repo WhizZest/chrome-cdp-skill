@@ -33,19 +33,12 @@ describe('constants: BROWSERS structure', () => {
   });
 
   test('all executables are absolute paths', () => {
-    if (IS_WINDOWS) {
-      for (const browser of BROWSERS) {
-        for (const exe of browser.executables) {
-          assert.ok(exe.startsWith('C:\\'),
-            `${browser.id}: ${exe} is not absolute`);
-        }
-      }
-    } else {
-      for (const browser of BROWSERS) {
-        for (const exe of browser.executables) {
-          assert.ok(exe.startsWith('/'),
-            `${browser.id}: ${exe} is not absolute`);
-        }
+    for (const browser of BROWSERS) {
+      for (const exe of browser.executables) {
+        const isAbsolute = IS_WINDOWS
+          ? /^[a-zA-Z]:\\/.test(exe) || exe.startsWith('\\\\')
+          : exe.startsWith('/');
+        assert.ok(isAbsolute, `${browser.id}: ${exe} is not absolute`);
       }
     }
   });
