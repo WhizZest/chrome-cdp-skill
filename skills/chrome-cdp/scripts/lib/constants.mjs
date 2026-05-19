@@ -83,7 +83,12 @@ export const BROWSERS = IS_WINDOWS ? [
   {
     id: 'chrome',
     name: 'Google Chrome',
-    executables: ['google-chrome-stable'],
+    executables: [
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+    ],
   },
 ];
 
