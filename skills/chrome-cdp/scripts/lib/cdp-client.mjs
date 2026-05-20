@@ -202,8 +202,21 @@ export async function getWsUrl(browserId) {
   try {
     const res = await fetch(versionUrl);
     const data = await res.json();
+    if (browserId) {
+      const runningBrowser = (data.Browser || '').toLowerCase();
+      const expected = browserId === 'edge' ? 'edg' : browserId;
+      if (!runningBrowser.includes(expected)) {
+        const error = new Error(
+          `Port ${port} is occupied by ${data.Browser || 'another browser'}, not the requested browser (${browserId}). ` +
+          `Close it first or use 'cdp list' without --browser.`
+        );
+        error.name = 'BrowserMismatchError';
+        throw error;
+      }
+    }
     return data.webSocketDebuggerUrl;
   } catch (e) {
+    if (e.name === 'BrowserMismatchError') throw e;
     if (e.cause?.code !== 'ECONNREFUSED') throw e;
   }
 
