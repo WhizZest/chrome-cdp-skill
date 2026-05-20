@@ -12,15 +12,16 @@ let launching = false;
 // TODO: diagnostic for intermittent dual-instance bug. Remove once root cause is fixed.
 function countBrowserInstances() {
   try {
+    const names = 'chrome,msedge,brave,vivaldi,chromium';
     if (IS_WINDOWS) {
       const out = execFileSync('powershell', [
         '-NoProfile', '-Command',
-        '(Get-Process -Name chrome,msedge -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle }).Count',
+        '@(Get-Process -Name ' + names + ' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle }).Count',
       ], { encoding: 'utf8', timeout: 500 });
       return parseInt(out.trim(), 10) || 0;
     } else {
       const out = execFileSync('sh', ['-c',
-        "ps aux | grep -i '[c]hrome.*--user-data-dir' | sed 's/.*--user-data-dir[= ]\\+//' | sed 's/ .*//' | sed 's/\"//g' | sort -u | wc -l",
+        "ps -ww aux | grep -Ei '" + names.replace(/,/g, '|') + "' | grep '--user-data-dir' | grep -v grep | sed -E 's/.*--user-data-dir[= ]+([^ ]+)/\\1/' | sed 's/\"//g' | sort -u | wc -l",
       ], { encoding: 'utf8', timeout: 500 });
       return parseInt(out.trim(), 10) || 0;
     }
