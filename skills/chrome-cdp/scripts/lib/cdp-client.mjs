@@ -204,17 +204,19 @@ export async function getWsUrl(browserId) {
     const data = await res.json();
     if (browserId) {
       const runningBrowser = (data.Browser || '').toLowerCase();
-      const expected = browserId === 'chrome' ? 'chrome' : 'edg';
+      const expected = browserId === 'edge' ? 'edg' : browserId;
       if (!runningBrowser.includes(expected)) {
-        throw new Error(
-          `Port ${port} is occupied by ${data.Browser}, not the requested browser (${browserId}). ` +
+        const error = new Error(
+          `Port ${port} is occupied by ${data.Browser || 'another browser'}, not the requested browser (${browserId}). ` +
           `Close it first or use 'cdp list' without --browser.`
         );
+        error.name = 'BrowserMismatchError';
+        throw error;
       }
     }
     return data.webSocketDebuggerUrl;
   } catch (e) {
-    if (e instanceof Error && e.message.includes('Port ')) throw e;
+    if (e.name === 'BrowserMismatchError') throw e;
     if (e.cause?.code !== 'ECONNREFUSED') throw e;
   }
 
