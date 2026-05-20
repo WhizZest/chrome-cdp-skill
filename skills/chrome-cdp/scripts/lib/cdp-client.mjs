@@ -7,6 +7,28 @@ import { getDisplayPrefixLength, sleep } from './utils.mjs';
 
 let launching = false;
 
+// Counts visible browser windows (Win) or distinct --user-data-dir instances (Linux/macOS).
+// Used for delta comparison only — absolute values are not meaningful across platforms.
+// TODO: diagnostic for intermittent dual-instance bug. Remove once root cause is fixed.
+function countBrowserInstances() {
+  try {
+    if (IS_WINDOWS) {
+      const out = execFileSync('powershell', [
+        '-NoProfile', '-Command',
+        '(Get-Process -Name chrome,msedge -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle }).Count',
+      ], { encoding: 'utf8', timeout: 500 });
+      return parseInt(out.trim(), 10) || 0;
+    } else {
+      const out = execFileSync('sh', ['-c',
+        "ps aux | grep -i '[c]hrome.*--user-data-dir' | sed 's/.*--user-data-dir[= ]\\+//' | sed 's/ .*//' | sed 's/\"//g' | sort -u | wc -l",
+      ], { encoding: 'utf8', timeout: 500 });
+      return parseInt(out.trim(), 10) || 0;
+    }
+  } catch {
+    return -1;
+  }
+}
+
 function launchChrome(port, profileDir, executable) {
   if (launching) return;
   launching = true;
@@ -224,6 +246,8 @@ export async function getWsUrl(browserId) {
   const profileDir = resolve(RUNTIME_DIR, `${browser.id}-profile`);
   mkdirSync(profileDir, { recursive: true });
 
+  const beforeCount = countBrowserInstances();
+
   launchChrome(port, profileDir, browser.executable);
   saveLastBrowser(browser.id);
 
@@ -233,6 +257,11 @@ export async function getWsUrl(browserId) {
     try {
       const res = await fetch(versionUrl);
       const data = await res.json();
+      const afterCount = countBrowserInstances();
+      if (beforeCount >= 0 && afterCount >= 0 && afterCount - beforeCount > 1) {
+        console.error(`[WARN] Browser instances increased from ${beforeCount} to ${afterCount} (delta=${afterCount - beforeCount}). ` +
+          `Expected 1, this may indicate multiple browser instances were launched.`);
+      }
       return data.webSocketDebuggerUrl;
     } catch (e) {
       if (e.cause?.code !== 'ECONNREFUSED') throw e;
