@@ -205,6 +205,7 @@ async function main() {
     cdp.close();
     writeFileSync(PAGES_CACHE, JSON.stringify(pages), { mode: 0o600 });
     console.log(`Opened new tab: ${result.targetId.slice(0, 8)}  ${url}`);
+    setTimeout(() => process.exit(0), 100);
     return;
   }
 
