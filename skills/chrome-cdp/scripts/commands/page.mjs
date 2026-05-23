@@ -73,7 +73,7 @@ async function snapshotStr(cdp, sid, compact = false) {
 
 export async function shotStr(cdp, sid, filePath, targetId, args = []) {
   if (!filePath || filePath.startsWith('--')) {
-    throw new Error('File path required. Usage: shot <target> <file> [--full]');
+    throw new Error('File path required. Usage: shot/screenshot <target> <file> [--full]');
   }
   const isFullPage = args.includes('--full');
 
