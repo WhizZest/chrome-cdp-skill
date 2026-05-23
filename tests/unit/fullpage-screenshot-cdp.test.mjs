@@ -1,8 +1,12 @@
 import assert from 'assert/strict';
+import { unlinkSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { describe, testAsync, summary } from '../lib/test-runner.mjs';
 import { TimeoutError } from '../../skills/chrome-cdp/scripts/lib/cdp-client.mjs';
 
 const PAGE_SRC = '../../skills/chrome-cdp/scripts/commands/page.mjs';
+const TEST_FILE = join(tmpdir(), 'cdp-test-shot.png');
 
 function createMockCDP(responses = {}) {
   const events = {};
@@ -52,11 +56,8 @@ await describe('fullpage screenshot: CDP call order with --full', async () => {
       'Runtime.evaluate': () => ({ result: { value: 1 } }),
     });
 
-    try {
-      await page.shotStr(cdp, SID, null, TARGET_ID, ['--full']);
-    } catch (e) {
-      if (!e.message.includes('ENOENT') && !e.message.includes('write')) throw e;
-    }
+    await page.shotStr(cdp, SID, TEST_FILE, TARGET_ID, ['--full']);
+    unlinkSync(TEST_FILE);
 
     const methods = cdp.sent.map(s => s.method);
     const bringIdx = methods.indexOf('Page.bringToFront');
@@ -79,11 +80,8 @@ await describe('fullpage screenshot: CDP call order with --full', async () => {
       'Runtime.evaluate': () => ({ result: { value: 1 } }),
     });
 
-    try {
-      await page.shotStr(cdp, SID, null, TARGET_ID, ['--full']);
-    } catch (e) {
-      if (!e.message.includes('ENOENT') && !e.message.includes('write')) throw e;
-    }
+    await page.shotStr(cdp, SID, TEST_FILE, TARGET_ID, ['--full']);
+    unlinkSync(TEST_FILE);
 
     const captureCall = cdp.sent.find(s => s.method === 'Page.captureScreenshot');
     assert.ok(captureCall, 'captureScreenshot should be called');
@@ -106,11 +104,8 @@ await describe('fullpage screenshot: without --full', async () => {
       'Runtime.evaluate': () => ({ result: { value: 1 } }),
     });
 
-    try {
-      await page.shotStr(cdp, SID, null, TARGET_ID, []);
-    } catch (e) {
-      if (!e.message.includes('ENOENT') && !e.message.includes('write')) throw e;
-    }
+    await page.shotStr(cdp, SID, TEST_FILE, TARGET_ID, []);
+    unlinkSync(TEST_FILE);
 
     const captureCall = cdp.sent.find(s => s.method === 'Page.captureScreenshot');
     assert.ok(captureCall, 'captureScreenshot should be called');
@@ -139,11 +134,8 @@ await describe('fullpage screenshot: timeout retry', async () => {
       'Runtime.evaluate': () => ({ result: { value: 1 } }),
     });
 
-    try {
-      await page.shotStr(cdp, SID, null, TARGET_ID, ['--full']);
-    } catch (e) {
-      if (!e.message.includes('ENOENT') && !e.message.includes('write')) throw e;
-    }
+    await page.shotStr(cdp, SID, TEST_FILE, TARGET_ID, ['--full']);
+    unlinkSync(TEST_FILE);
 
     assert.equal(callCount, 2, 'Should retry once after timeout');
 

@@ -47,7 +47,7 @@ Usage: cdp <command> [args]
   list                              List open pages (shows unique target prefixes)
   snap  <target>                    Accessibility tree snapshot
   eval  <target> <expr>             Evaluate JS expression [--save <file>] [--binary]
-  shot  <target> [file]             Screenshot (default: screenshot-<target>.png in runtime dir); prints coordinate mapping
+  shot  <target> <file>              Screenshot; prints coordinate mapping
                                     --full for full-page screenshot
   html  <target> [selector]         Get HTML (full page or CSS selector)
   nav   <target> <url>              Navigate to URL and wait for load completion
@@ -285,6 +285,12 @@ async function main() {
   } else if (cmd === 'evalraw') {
     if (!cmdArgs[0]) { console.error('Error: CDP method required'); process.exit(1); }
     if (cmdArgs.length > 2) cmdArgs[1] = cmdArgs.slice(1).join(' ');
+  } else if (cmd === 'shot' || cmd === 'screenshot') {
+    if (!cmdArgs[0] || cmdArgs[0].startsWith('--')) {
+      console.error('Error: File path required. Usage: shot/screenshot <target> <file> [--full]');
+      process.exit(1);
+    }
+    cmdArgs[0] = resolve(cmdArgs[0]);
   }
 
   if ((cmd === 'nav' || cmd === 'navigate') && !cmdArgs[0]) {
