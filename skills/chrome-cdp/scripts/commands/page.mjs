@@ -1,7 +1,6 @@
 import { writeFileSync } from 'fs';
-import { resolve } from 'path';
 import { registerCommand } from '../lib/command-registry.mjs';
-import { NAVIGATION_TIMEOUT, RUNTIME_DIR } from '../lib/constants.mjs';
+import { NAVIGATION_TIMEOUT } from '../lib/constants.mjs';
 import { sleep } from '../lib/utils.mjs';
 import { TimeoutError } from '../lib/cdp-client.mjs';
 import { evalStr } from './eval.mjs';
@@ -73,8 +72,10 @@ async function snapshotStr(cdp, sid, compact = false) {
 }
 
 export async function shotStr(cdp, sid, filePath, targetId, args = []) {
+  if (!filePath || filePath.startsWith('--')) {
+    throw new Error('File path required. Usage: shot <target> <file> [--full]');
+  }
   const isFullPage = args.includes('--full');
-  const resolvedPath = filePath && !filePath.startsWith('--') ? filePath : null;
 
   let dpr = 1;
   try {
@@ -113,11 +114,9 @@ export async function shotStr(cdp, sid, filePath, targetId, args = []) {
     }
   }
 
-  const suffix = isFullPage ? '-full' : '';
-  const out = resolvedPath || resolve(RUNTIME_DIR, `screenshot-${(targetId || 'unknown').slice(0, 8)}${suffix}.png`);
-  writeFileSync(out, Buffer.from(data, 'base64'));
+  writeFileSync(filePath, Buffer.from(data, 'base64'));
 
-  const lines = [out];
+  const lines = [filePath];
   lines.push(`Screenshot saved.${isFullPage ? ' (full page)' : ''} Device pixel ratio (DPR): ${dpr}`);
   lines.push(`Coordinate mapping:`);
   lines.push(`  Screenshot pixels → CSS pixels (for CDP Input events): divide by ${dpr}`);

@@ -136,8 +136,8 @@ Plugins and most commands need a `<target>` (a browser tab). Use low-level comma
 ### Take a screenshot
 
 ```bash
-<skill_dir>/scripts/cdp.mjs shot <target> [file]    # default: screenshot-<target>.png in runtime dir
-<skill_dir>/scripts/cdp.mjs shot <target> --full     # full-page screenshot (captures entire scrollable content)
+<skill_dir>/scripts/cdp.mjs shot <target> <file>    # save screenshot to the specified file
+<skill_dir>/scripts/cdp.mjs shot <target> <file> --full  # full-page screenshot
 ```
 
 Captures the **viewport only** by default. Use `--full` to capture the entire page including content below the fold. Full-page screenshots temporarily resize the viewport, capture, then restore it. Very tall pages are capped at 16384px height. Scroll first with `eval` if you need content below the fold. Output includes the page's DPR and coordinate conversion hint (see **Coordinates** below).
